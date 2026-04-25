@@ -71,12 +71,11 @@ cookie_inspector/
 ├── manifest.json       # Extension config and permissions
 ├── cookieEditor.html   # Popup UI
 ├── cookieEditor.js     # All application logic
-├── cookieEditor.css    # Styles and theme tokens
-└── icons/              # Extension icons (16px, 48px, 128px)
+└── cookieEditor.css    # Styles and theme tokens            
 ```
 
 ---
 
 ## License
 
-MIT © [clearlyDesigned.dev](https://clearlyDesigned.dev)
+MIT © [GitHub Profile](https://github.com/JoshuaErney)
