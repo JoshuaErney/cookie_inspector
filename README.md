@@ -1,4 +1,4 @@
-# [](cookie-inspector.png) Cookie Inspector
+# (cookie-inspector.png) Cookie Inspector
 
 A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies — with dark mode, snapshots, and import/export.
 
