@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="cookieEditor.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="main-header">
+        <div class="header-top">
+          <div class="brand">
+            <span class="brand-icon">🍪</span>
+            <h2>Cookie Inspector</h2>
+          </div>
+          <div class="header-controls">
+            <button id="settingsToggle" class="btn-icon" title="Settings">
+              <span id="settingsIconContainer"></span>
+            </button>
+            <button id="themeToggle" class="btn-icon" title="Toggle Theme">
+              <span id="themeIconContainer"></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="stats" class="stats-badge">Loading...</div>
+
+        <div class="search-container">
+          <div class="input-wrapper">
+            <svg
+              class="search-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search cookies or domains..."
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button id="exportBtn" class="btn-primary">Export JSON</button>
+          <button id="importBtn" class="btn-secondary">Import JSON</button>
+        </div>
+
+        <input
+          type="file"
+          id="importFile"
+          style="display: none"
+          accept=".json"
+        />
+      </header>
+
+      <main id="cookieList" class="cookie-list"></main>
+
+      <div id="settingsPanel" class="settings-panel">
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div class="settings-section-title">Snapshots</div>
+            <span id="snapshotCount" class="snapshot-count-badge">0 / 10</span>
+          </div>
+          <div class="settings-description">Save point-in-time copies of all current cookies. Up to 10 snapshots.</div>
+          <button id="saveSnapshot" class="btn-primary">Save New Snapshot</button>
+          <div id="snapshotList" class="snapshot-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="cookieEditor.js"></script>
+  </body>
+</html>

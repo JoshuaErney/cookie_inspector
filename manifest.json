@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Cookie Inspector",
+  "short_name": "Cookie Inspector",
+  "version": "1.0.0",
+  "author": "clearlyDesigned.dev",
+  "description": "A secure, offline-first tool to inspect, modify, and manage your browser cookies.",
+  "offline_enabled": true,
+  "permissions": ["cookies", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "cookieEditor.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}
