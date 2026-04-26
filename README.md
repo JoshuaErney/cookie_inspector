@@ -1,6 +1,6 @@
-# Cookie Inspector
+# 🍪 Cookie Inspector
 
-A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies — with dark mode, snapshots, and import/export.
+A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies — with dark mode, live updates, snapshots, and import/export.
 
 <!-- Chrome Web Store badge — add once approved -->
 <!-- [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/EXTENSION_ID)](https://chrome.google.com/webstore/detail/EXTENSION_ID) -->
@@ -61,25 +61,49 @@ Manage your saved snapshots — view when each was taken, how many cookies it co
 
 ### Cookie Inspection
 
-View every cookie stored in your browser, grouped by domain. A stats bar shows the total count and number of domains at a glance. Use the real-time search to filter across cookie names, values, and domains simultaneously.
+View every cookie stored in your browser, grouped by domain. A stats bar shows the total count and number of domains at a glance. The list updates in real time as websites set or remove cookies while the popup is open — no need to close and reopen.
 
 ### Cookie Detail Panel
 
-Expand any cookie with the chevron to reveal its full metadata — raw value, path, secure flag, HttpOnly, SameSite policy, expiration date, and host-only status. If the cookie value is JSON or Base64 encoded, the decoded output is shown automatically with no extra steps.
+Expand any cookie with the chevron to reveal its full metadata — raw value, path, secure flag, HttpOnly, SameSite policy, expiration date, and host-only status. If the cookie value is JSON or Base64 encoded, the decoded output is shown automatically.
+
+### Cookie Creation & Editing
+
+- **Manual form** — create a cookie field-by-field with full control over every attribute
+- **JSON / Base64 paste** — paste a cookie object, an array of cookies, or Base64-encoded JSON to create one or many cookies at once
+- **Inline editing** — expand any cookie and click Edit to modify its fields directly in the detail panel
+
+### Filtering & Sorting
+
+Filter the cookie list by attribute using quick-select chips:
+
+- **All** — show everything
+- **Session** — cookies with no expiration date
+- **No HttpOnly** — cookies accessible to JavaScript (potential XSS risk)
+- **Insecure** — cookies without the Secure flag
+- **Duplicate** — cookies whose name appears on more than one domain
+
+Sort domain groups by: **Domain A–Z**, **Name A–Z**, **Expiry**, or **Cookie Count**.
 
 ### Security Indicators
 
-Cookies missing the `HttpOnly` flag are flagged with a "No HttpOnly" label and an amber left border, making them easy to spot while scrolling. These cookies are accessible to JavaScript and represent a potential XSS risk.
+- Cookies missing the `HttpOnly` flag show a **No HttpOnly** label with an amber left border
+- Cookies whose name appears on multiple domains show a **Duplicate** label
+- The **Insecure** filter surfaces cookies missing the Secure flag
+
+### Domain Pinning
+
+Pin any domain to keep it anchored at the top of the list, regardless of the active sort order. Pin state is saved across sessions.
 
 ### Cookie Management
 
 - **Delete** — remove any individual cookie instantly
 - **Clear Domain** — bulk delete all cookies for a domain in one click
-- **Make Session-Only** — strip expiration dates from all cookies under a domain, converting them to session cookies
+- **Make Session-Only** — strip expiration dates from all cookies under a domain
 
 ### Snapshots
 
-Save up to 10 point-in-time copies of all your cookies. Each snapshot shows when it was taken and how many cookies it contains. Restore any snapshot to bring your cookies back to that state, or delete ones you no longer need.
+Save up to 10 named, point-in-time copies of all your cookies. Each snapshot records when it was taken and how many cookies it contains. Restore any snapshot to bring your cookies back to that state, or delete ones you no longer need.
 
 ### Export & Import
 
@@ -116,16 +140,23 @@ No build step required. Edit the source files directly and click the refresh ico
 
 ```
 cookie_inspector/
-├── manifest.json       # Extension config and permissions
-├── cookieEditor.html   # Popup UI
-├── cookieEditor.js     # All application logic
-├── cookieEditor.css    # Styles and theme tokens
-├── screenshots         # Screenshots folder
-└── icons/              # Extension icons (16px, 48px, 128px)
+├── manifest.json         # Extension config and permissions
+├── cookieEditor.html     # Popup UI
+├── cookieEditor.js       # All application logic
+├── cookieEditor.css      # Styles and theme tokens
+├── privacy-policy.html   # GitHub Pages privacy policy
+├── screenshots/          # Screenshots used in this README
+└── icons/                # Extension icons (16px, 32px, 48px, 128px)
 ```
 
 ---
 
 ## License
 
-MIT © [clearlyDesigned.dev](https://clearlyDesigned.dev)
+MIT
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/joshuaerney">@joshuaerney</a>
+</p>

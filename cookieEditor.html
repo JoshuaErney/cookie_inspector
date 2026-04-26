@@ -17,6 +17,9 @@
             <h2>Cookie Inspector</h2>
           </div>
           <div class="header-controls">
+            <button id="createToggle" class="btn-icon" title="New Cookie">
+              <span id="createIconContainer"></span>
+            </button>
             <button id="settingsToggle" class="btn-icon" title="Settings">
               <span id="settingsIconContainer"></span>
             </button>
@@ -26,7 +29,10 @@
           </div>
         </div>
 
-        <div id="stats" class="stats-badge">Loading...</div>
+        <div class="stats-row">
+          <div id="stats" class="stats-badge">Loading...</div>
+          <span class="live-dot" title="Live updates active"></span>
+        </div>
 
         <div class="search-container">
           <div class="input-wrapper">
@@ -52,6 +58,22 @@
           </div>
         </div>
 
+        <div class="filter-bar">
+          <select id="sortSelect" class="sort-select">
+            <option value="domain">Domain A–Z</option>
+            <option value="name">Name A–Z</option>
+            <option value="expiry">Expiry</option>
+            <option value="count">Count</option>
+          </select>
+          <div class="filter-chips">
+            <button class="chip active" data-filter="all">All</button>
+            <button class="chip" data-filter="session">Session</button>
+            <button class="chip" data-filter="no-httponly">No HttpOnly</button>
+            <button class="chip" data-filter="insecure">Insecure</button>
+            <button class="chip" data-filter="duplicate">Duplicate</button>
+          </div>
+        </div>
+
         <div class="action-grid">
           <button id="exportBtn" class="btn-primary">Export JSON</button>
           <button id="importBtn" class="btn-secondary">Import JSON</button>
@@ -67,6 +89,8 @@
 
       <main id="cookieList" class="cookie-list"></main>
 
+      <div id="createPanel" class="create-panel"></div>
+
       <div id="settingsPanel" class="settings-panel">
         <div class="settings-section">
           <div class="settings-section-header">
@@ -74,6 +98,7 @@
             <span id="snapshotCount" class="snapshot-count-badge">0 / 10</span>
           </div>
           <div class="settings-description">Save point-in-time copies of all current cookies. Up to 10 snapshots.</div>
+          <input type="text" id="snapshotLabel" class="form-input" placeholder="Snapshot name (optional)" maxlength="40" />
           <button id="saveSnapshot" class="btn-primary">Save New Snapshot</button>
           <div id="snapshotList" class="snapshot-list"></div>
         </div>
