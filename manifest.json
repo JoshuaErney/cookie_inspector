@@ -6,7 +6,7 @@
   "author": "joshuaerney",
   "description": "A secure, offline-first tool to inspect, modify, and manage your browser cookies.",
   "offline_enabled": true,
-  "homepage_url": "https://joshuaerney.github.io/cookie_inspector/privacy-policy.html",
+  "homepage_url": "https://joshuaerney.github.io/cookie_inspector/",
   "permissions": ["cookies", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {

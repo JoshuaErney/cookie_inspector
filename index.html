@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cookie Inspector — Chrome Extension</title>
+    <meta name="description" content="A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies." />
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg:         #f5f7fa;
+        --surface:    #ffffff;
+        --border:     #e4e8ef;
+        --text:       #111827;
+        --muted:      #6b7280;
+        --accent:     #5b5ef4;
+        --accent-dim: #eef2ff;
+        --green:      #22c55e;
+        --green-dim:  #f0fdf4;
+        --green-text: #15803d;
+        --radius:     10px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg:         #0d1117;
+          --surface:    #161b22;
+          --border:     #30363d;
+          --text:       #e6edf3;
+          --muted:      #848d97;
+          --accent:     #818cf8;
+          --accent-dim: #1a1c3a;
+          --green:      #4ade80;
+          --green-dim:  #0f2a1a;
+          --green-text: #4ade80;
+        }
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Nav ── */
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0 24px;
+      }
+
+      .nav-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .nav-brand:hover {
+        text-decoration: none;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        list-style: none;
+      }
+
+      .nav-links a {
+        font-size: 14px;
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+
+      .nav-links a:hover {
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      /* ── Hero ── */
+
+      .hero {
+        padding: 80px 24px 72px;
+        text-align: center;
+      }
+
+      .hero-inner {
+        max-width: 640px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--accent);
+        background: var(--accent-dim);
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+
+      .hero h1 {
+        font-size: clamp(28px, 5vw, 44px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        color: var(--text);
+      }
+
+      .hero p {
+        font-size: 18px;
+        color: var(--muted);
+        line-height: 1.6;
+        max-width: 520px;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 4px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: opacity 0.15s, background 0.15s;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        opacity: 0.85;
+        text-decoration: none;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-outline {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .btn-outline:hover {
+        background: var(--surface);
+      }
+
+      /* ── Section shared ── */
+
+      section {
+        padding: 64px 24px;
+      }
+
+      section + section {
+        border-top: 1px solid var(--border);
+      }
+
+      .section-inner {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .section-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 10px;
+      }
+
+      .section-title {
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+
+      .section-sub {
+        font-size: 16px;
+        color: var(--muted);
+        margin-bottom: 48px;
+        max-width: 560px;
+      }
+
+      /* ── Features grid ── */
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .feature-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px 22px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .feature-icon {
+        font-size: 22px;
+        line-height: 1;
+        margin-bottom: 2px;
+      }
+
+      .feature-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .feature-desc {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .feature-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 4px;
+      }
+
+      .tag {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 20px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      /* ── Privacy section ── */
+
+      .privacy-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 32px 36px;
+        max-width: 720px;
+      }
+
+      .privacy-highlight {
+        background: var(--green-dim);
+        border-left: 3px solid var(--green);
+        padding: 14px 16px;
+        border-radius: 6px;
+        margin: 24px 0;
+        color: var(--green-text);
+        font-weight: 500;
+        font-size: 15px;
+      }
+
+      .privacy-card h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        margin-top: 28px;
+        margin-bottom: 8px;
+      }
+
+      .privacy-card h3:first-of-type {
+        margin-top: 0;
+      }
+
+      .privacy-card p {
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 10px;
+        line-height: 1.7;
+      }
+
+      .privacy-card ul {
+        font-size: 14px;
+        color: var(--muted);
+        padding-left: 20px;
+        margin-bottom: 10px;
+        line-height: 1.8;
+      }
+
+      .privacy-updated {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+      }
+
+      /* ── Footer ── */
+
+      footer {
+        padding: 32px 24px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+
+      .footer-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .footer-left {
+        font-size: 14px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .footer-right {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .footer-right a {
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .footer-right a:hover {
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      @media (max-width: 600px) {
+        .hero { padding: 56px 20px 48px; }
+        section { padding: 48px 20px; }
+        .privacy-card { padding: 24px 20px; }
+        .nav-links { gap: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <nav>
+      <div class="nav-inner">
+        <a class="nav-brand" href="#">
+          🍪 Cookie Inspector
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="https://github.com/joshuaerney" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="hero-badge">🍪 Chrome Extension</span>
+        <h1>Inspect, manage, and understand your browser cookies.</h1>
+        <p>A clean, offline-first Chrome extension with real-time updates, security indicators, and full cookie control — right inside your browser.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://chrome.google.com/webstore" target="_blank" rel="noopener">
+            View on Chrome Web Store
+          </a>
+          <a class="btn btn-outline" href="https://github.com/joshuaerney/cookie_inspector" target="_blank" rel="noopener">
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="section-inner">
+        <div class="section-label">Features</div>
+        <h2 class="section-title">Everything you need to manage cookies.</h2>
+        <p class="section-sub">Cookie Inspector gives you a clear, real-time view of every cookie in your browser with the tools to inspect, edit, and control them.</p>
+
+        <div class="features-grid">
+
+          <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <div class="feature-title">Cookie Inspection</div>
+            <div class="feature-desc">View every cookie grouped by domain. A live stats bar shows total count and domains at a glance. The list updates in real time as websites set or remove cookies while the popup is open.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📋</div>
+            <div class="feature-title">Detail Panel & Auto-Decode</div>
+            <div class="feature-desc">Expand any cookie to see its full metadata — value, path, secure flag, HttpOnly, SameSite, expiration, and host-only status. JSON and Base64 values are decoded automatically.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">✏️</div>
+            <div class="feature-title">Create & Edit Cookies</div>
+            <div class="feature-desc">Create cookies manually with a full form, or paste raw JSON or Base64 to create one or many at once. Edit any existing cookie directly in the detail panel.</div>
+            <div class="feature-tags">
+              <span class="tag">Manual form</span>
+              <span class="tag">JSON paste</span>
+              <span class="tag">Base64 paste</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <div class="feature-title">Security Indicators</div>
+            <div class="feature-desc">Cookies missing <code>HttpOnly</code> are flagged with an amber border — they're accessible to JavaScript and a potential XSS risk. Cookies with the same name on multiple domains are flagged as duplicates.</div>
+            <div class="feature-tags">
+              <span class="tag">No HttpOnly</span>
+              <span class="tag">Duplicate</span>
+              <span class="tag">Insecure</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🗂️</div>
+            <div class="feature-title">Filtering & Sorting</div>
+            <div class="feature-desc">Filter cookies by type using quick-select chips: All, Session, No HttpOnly, Insecure, or Duplicate. Sort domain groups by name, expiry, or cookie count.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📌</div>
+            <div class="feature-title">Domain Pinning</div>
+            <div class="feature-desc">Pin any domain to keep it anchored at the top of the list, regardless of the active sort. Pins are saved across sessions so your most important domains are always front and center.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🗄️</div>
+            <div class="feature-title">Snapshots</div>
+            <div class="feature-desc">Save up to 10 named, point-in-time copies of all your cookies. Restore any snapshot to bring your cookies back to that exact state, or delete ones you no longer need.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📤</div>
+            <div class="feature-title">Export & Import</div>
+            <div class="feature-desc">Export all current cookies to a timestamped JSON file. Import a previously exported file to restore cookies across sessions or transfer them between environments.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🌙</div>
+            <div class="feature-title">Dark Mode</div>
+            <div class="feature-desc">Automatically respects your system's dark or light preference. Toggle manually at any time — your choice is saved across sessions.</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="section-inner">
+        <div class="section-label">Privacy Policy</div>
+        <h2 class="section-title">Your data stays on your device.</h2>
+        <p class="section-sub">Cookie Inspector is built to be entirely offline. No data is ever collected, transmitted, or shared.</p>
+
+        <div class="privacy-card">
+          <div class="privacy-highlight">
+            Cookie Inspector does not collect, store, or transmit any personal data. Everything stays on your device.
+          </div>
+
+          <h3>What Cookie Inspector does</h3>
+          <p>Cookie Inspector is a Chrome browser extension that lets you view, inspect, and manage the cookies stored in your browser. It reads cookie data already present on your device and displays it within the extension popup.</p>
+
+          <h3>Data collection</h3>
+          <p>We do not collect any data. Specifically:</p>
+          <ul>
+            <li>No cookie names, values, or metadata are ever sent to any server</li>
+            <li>No browsing history or activity is recorded</li>
+            <li>No analytics or tracking of any kind is used</li>
+            <li>No third-party services are contacted</li>
+          </ul>
+
+          <h3>Local storage</h3>
+          <p>Cookie Inspector uses Chrome's local storage API solely to save your theme preference (light or dark mode), any cookie snapshots you choose to create, and any domains you choose to pin. This data never leaves your device and can be cleared at any time by removing the extension.</p>
+
+          <h3>Permissions</h3>
+          <p>The extension requests the following Chrome permissions:</p>
+          <ul>
+            <li><strong>cookies</strong> — required to read, modify, and delete cookies on your behalf</li>
+            <li><strong>storage</strong> — required to save your theme preference, snapshots, and pinned domains locally</li>
+            <li><strong>host permissions (&lt;all_urls&gt;)</strong> — required so the cookies API can operate across all domains</li>
+          </ul>
+          <p>These permissions are used exclusively to provide the features of the extension and for no other purpose.</p>
+
+          <h3>Changes to this policy</h3>
+          <p>If this policy ever changes, the updated version will be published at this URL with a revised date.</p>
+
+          <h3>Contact</h3>
+          <p>Questions or concerns? Leave a review or message on the <a href="https://chrome.google.com/webstore" target="_blank" rel="noopener">Chrome Web Store listing</a>.</p>
+
+          <p class="privacy-updated">Last updated: April 2026</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-left">
+          🍪 Cookie Inspector &mdash; MIT License
+        </div>
+        <div class="footer-right">
+          <a href="https://github.com/joshuaerney" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+            </svg>
+            @joshuaerney
+          </a>
+        </div>
+      </div>
+    </footer>
+
+  </body>
+</html>
