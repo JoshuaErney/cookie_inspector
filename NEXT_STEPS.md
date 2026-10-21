@@ -88,7 +88,7 @@ Known gaps and backlog:
 - `chrome.storage.local` keys: `cookie_snapshots`, `pinned_domains`, `theme`. Snapshot limit is 10 (`snapshots.length >= 10`).
 - Manifest: `permissions: ["cookies","storage"]`, `host_permissions: ["<all_urls>"]`, CSP `script-src 'self'; object-src 'self'`.
 - `tests/decode.test.js` extracts code between the comment `// Decoding for the detail panel` and the line `  const debounce` in `cookieEditor.js`. If you rename or move either marker, update the test.
-- README, the website (`index.html`, `privacy-policy.html`) and `screenshots/` were rewritten on 2026-10-21 to cover every feature. The privacy text lives in two places (`index.html` and `privacy-policy.html`): keep them in sync. `npm run screenshots` regenerates the images from demo data. The v1.0 images and the old logo files were deleted when the new logo (`logo/`, see `logo/README.md`) replaced them. When a roadmap item changes the UI or behavior, update the README section for it and re-run the screenshots.
+- README, the website (`index.html`, `privacy-policy.html`) and `graphic-assets/screenshots/` were rewritten on 2026-10-21 to cover every feature. The privacy text lives in two places (`index.html` and `privacy-policy.html`): keep them in sync. `npm run screenshots` regenerates the images from demo data. The v1.0 images and the old logo files were deleted when the new logo (`logo/`, see `logo/README.md`) replaced them. When a roadmap item changes the UI or behavior, update the README section for it and re-run the screenshots.
 - `tests/scope.test.js` does the same for the block from `// Site scope:` to `// End of site scope` (`siteFromUrl`, `cookieMatchesSite`, `getActiveSite`). It runs `getActiveSite` against a stand-in `chrome`, so keep that block free of other dependencies.
 - `tab.url` is not filled in for the extension's own pages, so the popup cannot recognise "I am the active tab" by URL. `getActiveSite()` uses `chrome.tabs.getCurrent()` instead: undefined in the toolbar popup (use the active tab), set when the page is open in a tab (use the most recently used other tab in that window).
 - The popup is the whole extension: `cookieEditor.html` / `.css` / `.js`. `index.html` and `privacy-policy.html` are the GitHub Pages site and are not part of the package.
@@ -106,7 +106,7 @@ npm run test:e2e      # HEADED=1 to watch
 
 The e2e tests copy the repo to a temp folder, give the copy a generated manifest `key` for a stable extension id, and launch full Chromium (`channel: 'chromium'`; the headless shell cannot load extensions). They assert zero network requests outside `chrome-extension:`, `data:` and `blob:`.
 
-Store package contents: `manifest.json`, `cookieEditor.html`, `cookieEditor.css`, `cookieEditor.js`, `fonts/`, `icons/`. Nothing else.
+Store package contents: `manifest.json`, `cookieEditor.html`, `cookieEditor.css`, `cookieEditor.js`, `fonts/`, `graphic-assets/icons/`. Nothing else: not the rest of `graphic-assets/`.
 
 **Environment gotchas for the next Claude session**
 

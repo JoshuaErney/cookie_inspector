@@ -10,8 +10,8 @@ A clean, offline-first Chrome extension for inspecting, decoding, editing, and m
     <td align="center"><strong>Dark mode</strong></td>
   </tr>
   <tr>
-    <td><img src="screenshots/main-light.png" alt="Cookie Inspector main view, light mode" width="360" /></td>
-    <td><img src="screenshots/main-dark.png" alt="Cookie Inspector main view, dark mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/main-light.png" alt="Cookie Inspector main view, light mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/main-dark.png" alt="Cookie Inspector main view, dark mode" width="360" /></td>
   </tr>
 </table>
 
@@ -107,8 +107,8 @@ Plain values such as `123`, `true` or a random token are left alone rather than 
     <td align="center"><strong>Dark mode</strong></td>
   </tr>
   <tr>
-    <td><img src="screenshots/detail-light.png" alt="A cookie's detail panel with a decoded JWT, light mode" width="360" /></td>
-    <td><img src="screenshots/detail-dark.png" alt="A cookie's detail panel with a decoded JWT, dark mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/detail-light.png" alt="A cookie's detail panel with a decoded JWT, light mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/detail-dark.png" alt="A cookie's detail panel with a decoded JWT, dark mode" width="360" /></td>
   </tr>
 </table>
 
@@ -147,8 +147,8 @@ A missing `path` becomes `/` and a missing `sameSite` becomes `lax`. This is the
     <td align="center"><strong>Dark mode</strong></td>
   </tr>
   <tr>
-    <td><img src="screenshots/create-light.png" alt="The New Cookie panel, light mode" width="360" /></td>
-    <td><img src="screenshots/create-dark.png" alt="The New Cookie panel, dark mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/create-light.png" alt="The New Cookie panel, light mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/create-dark.png" alt="The New Cookie panel, dark mode" width="360" /></td>
   </tr>
 </table>
 
@@ -192,8 +192,8 @@ Things to know:
     <td align="center"><strong>Dark mode</strong></td>
   </tr>
   <tr>
-    <td><img src="screenshots/snapshots-light.png" alt="The Snapshots panel, light mode" width="360" /></td>
-    <td><img src="screenshots/snapshots-dark.png" alt="The Snapshots panel, dark mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/snapshots-light.png" alt="The Snapshots panel, light mode" width="360" /></td>
+    <td><img src="graphic-assets/screenshots/snapshots-dark.png" alt="The Snapshots panel, dark mode" width="360" /></td>
   </tr>
 </table>
 
@@ -291,9 +291,11 @@ cookie_inspector/
 ├── index.html            # Website (GitHub Pages)
 ├── privacy-policy.html   # Privacy policy (GitHub Pages)
 ├── tests/                # End-to-end tests (Playwright), decoder and site-scope unit tests
-├── screenshots/          # Screenshots used in this README and the website
-├── logo/                 # Logo sources (SVG), 1024px master and wordmark versions
-└── icons/                # Extension icons (16px, 32px, 48px, 128px)
+└── graphic-assets/       # Every image (see graphic-assets/README.md)
+    ├── icons/            # Extension icons (16px, 32px, 48px, 128px), used by manifest.json
+    ├── logo/             # Logo sources (SVG), 1024px master and wordmark versions
+    ├── screenshots/      # Popup screenshots used in this README and the website
+    └── store/            # Chrome Web Store images: five screenshots, small and marquee promo tiles
 ```
 
 ### Tests
@@ -310,11 +312,13 @@ Run `npm run test:decode`, `npm run test:scope` or `npm run test:e2e` on their o
 
 ### Screenshots
 
-`npm run screenshots` regenerates the popup screenshots in `screenshots/` (used by this README and the website) from made-up demo cookies in a throwaway Chromium profile. Run it after changing the popup's look, and commit the new images.
+`npm run screenshots` regenerates the popup screenshots in `graphic-assets/screenshots/` (used by this README and the website) from made-up demo cookies in a throwaway Chromium profile. Run it after changing the popup's look, and commit the new images.
+
+`npm run assets` rebuilds the Chrome Web Store images in `graphic-assets/store/` (five 1280 x 800 screenshots plus the small and marquee promo tiles) from the same demo data. See `graphic-assets/README.md`.
 
 ### Packaging
 
-`package.json`, `tests/` and `node_modules/` are not part of the extension. When zipping it for the Chrome Web Store, include only `manifest.json`, `cookieEditor.html`, `cookieEditor.css`, `cookieEditor.js`, `fonts/` and `icons/`.
+`package.json`, `tests/` and `node_modules/` are not part of the extension. When zipping it for the Chrome Web Store, include only `manifest.json`, `cookieEditor.html`, `cookieEditor.css`, `cookieEditor.js`, `fonts/` and `graphic-assets/icons/` (not the rest of `graphic-assets/`).
 
 ---
 

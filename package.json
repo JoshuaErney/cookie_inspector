@@ -9,7 +9,8 @@
     "test:decode": "node tests/decode.test.js",
     "test:scope": "node tests/scope.test.js",
     "test:e2e": "node tests/e2e.js",
-    "screenshots": "node tests/screenshots.js"
+    "screenshots": "node tests/screenshots.js",
+    "assets": "node graphic-assets/build-store-assets.js"
   },
   "devDependencies": {
     "playwright": "^1.56.0"

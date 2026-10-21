@@ -8,7 +8,15 @@ const os = require('os');
 const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SKIP = new Set(['.git', 'node_modules', 'tests', 'screenshots']);
+// The temporary copy mirrors what ships in the Chrome Web Store package (README, "Packaging"):
+// no dev folders, and inside graphic-assets/ only icons/ (the rest are screenshots and marketing images).
+const SKIP = new Set(['.git', 'node_modules', 'tests']);
+function shipsInPackage(src) {
+  const rel = path.relative(REPO_ROOT, src);
+  if (SKIP.has(rel)) return false;
+  const [top, sub] = rel.split(path.sep);
+  return !(top === 'graphic-assets' && sub !== undefined && sub !== 'icons');
+}
 
 // Chrome derives an extension's id from its public key, so we give the temporary copy a
 // freshly generated key. That makes the id known up front and independent of the file path.
@@ -21,10 +29,7 @@ async function launchExtension() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cookie-inspector-test-'));
   const extDir = path.join(tmp, 'extension');
 
-  fs.cpSync(REPO_ROOT, extDir, {
-    recursive: true,
-    filter: (src) => !SKIP.has(path.basename(src)) || path.dirname(src) !== REPO_ROOT,
-  });
+  fs.cpSync(REPO_ROOT, extDir, { recursive: true, filter: shipsInPackage });
 
   const { publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
   const der = publicKey.export({ type: 'spki', format: 'der' });
