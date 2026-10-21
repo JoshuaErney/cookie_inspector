@@ -139,7 +139,9 @@
         Cookie Inspector is a Chrome browser extension that lets you view,
         inspect, and manage the cookies stored in your browser. It reads cookie
         data already present on your device and displays it within the extension
-        popup.
+        popup. When you open the popup it also reads the address of your active
+        tab, so it can show that site's cookies first. The address is used only
+        inside the popup while it is open and is never saved or sent anywhere.
       </p>
 
       <h2>Data collection</h2>
@@ -174,7 +176,8 @@
         </li>
         <li>
           <strong>host permissions (&lt;all_urls&gt;)</strong> — required so the
-          cookies API can operate across all domains
+          cookies API can operate across all domains, and so the popup can read
+          the active tab's address to choose which site's cookies to show first
         </li>
       </ul>
       <p>

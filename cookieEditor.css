@@ -148,6 +148,62 @@ body {
   color: var(--text);
 }
 
+/* ─── Scope toggle (This site / All sites) ───── */
+
+.scope-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.scope-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 5px 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.scope-btn[data-scope="site"] { flex: 2 1 0; }
+.scope-btn[data-scope="all"]  { flex: 1 1 0; }
+
+.scope-btn:hover {
+  background: var(--surface-2);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.scope-btn.active,
+.scope-btn.active:hover {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.scope-kicker {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.scope-host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 .stats-row {
   display: flex;
   align-items: center;
@@ -380,6 +436,12 @@ button:active {
   color: var(--text-muted);
   text-align: center;
   line-height: 1.5;
+}
+
+.empty-state .btn-secondary {
+  flex: none;
+  margin-top: 6px;
+  padding: 6px 14px;
 }
 
 /* ─── Cookie List ────────────────────────────── */
@@ -774,6 +836,7 @@ body.dark-mode .label.duplicate {
   gap: 12px;
 }
 
+.app-container.create-open .scope-row,
 .app-container.create-open .stats-row,
 .app-container.create-open .search-container,
 .app-container.create-open .filter-bar,
@@ -974,6 +1037,7 @@ body.dark-mode .label.duplicate {
   gap: 20px;
 }
 
+.app-container.settings-open .scope-row,
 .app-container.settings-open .stats-row,
 .app-container.settings-open .search-container,
 .app-container.settings-open .filter-bar,

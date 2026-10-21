@@ -5,9 +5,11 @@
   "description": "Dev tooling for the Cookie Inspector Chrome extension. The extension itself has no build step.",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/decode.test.js && node tests/e2e.js",
+    "test": "node tests/decode.test.js && node tests/scope.test.js && node tests/e2e.js",
     "test:decode": "node tests/decode.test.js",
-    "test:e2e": "node tests/e2e.js"
+    "test:scope": "node tests/scope.test.js",
+    "test:e2e": "node tests/e2e.js",
+    "screenshots": "node tests/screenshots.js"
   },
   "devDependencies": {
     "playwright": "^1.56.0"
