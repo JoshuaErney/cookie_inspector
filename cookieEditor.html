@@ -25,6 +25,16 @@
           </div>
         </div>
 
+        <div id="scopeRow" class="scope-row" hidden>
+          <div class="scope-toggle" role="group" aria-label="Which cookies to show">
+            <button class="scope-btn active" data-scope="site" aria-pressed="true">
+              <span class="scope-kicker">This site</span>
+              <span id="scopeHost" class="scope-host"></span>
+            </button>
+            <button class="scope-btn" data-scope="all" aria-pressed="false">All sites</button>
+          </div>
+        </div>
+
         <div class="stats-row">
           <div id="stats" class="stats-badge">Loading...</div>
           <span class="live-dot" title="Live updates active"></span>

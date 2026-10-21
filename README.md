@@ -70,6 +70,10 @@ Expand any cookie with the chevron to reveal its full metadata — raw value, pa
 - **JSON / Base64 paste** — paste a cookie object, an array of cookies, or Base64-encoded JSON to create one or many cookies at once
 - **Inline editing** — expand any cookie and click Edit to modify its fields directly in the detail panel
 
+### This Site / All Sites
+
+When the active tab is a website, the list opens on **This site**: only the cookies that apply to that hostname (domain cookies for it or a parent domain, and host-only cookies for that exact host). Switch to **All sites** for every cookie in the browser. On tabs with no site (a new tab, `chrome://` pages) the toggle is hidden and everything is shown. Search, filters, stats and **Export JSON** all follow the selected scope.
+
 ### Filtering & Sorting
 
 Filter the cookie list by attribute using quick-select chips:
@@ -78,7 +82,7 @@ Filter the cookie list by attribute using quick-select chips:
 - **Session** — cookies with no expiration date
 - **No HttpOnly** — cookies accessible to JavaScript (potential XSS risk)
 - **Insecure** — cookies without the Secure flag
-- **Duplicate** — cookies whose name appears on more than one domain
+- **Duplicate** — cookies whose name appears on more than one domain (within the selected scope)
 
 Sort domain groups by: **Domain A–Z**, **Name A–Z**, **Expiry**, or **Cookie Count**.
 
@@ -104,7 +108,7 @@ Save up to 10 named, point-in-time copies of all your cookies. Each snapshot rec
 
 ### Export & Import
 
-Export all current cookies to a timestamped JSON file for backup or transfer. Import a previously exported file to restore cookies across sessions or devices.
+Export the cookies in the current scope (one site, or all sites) to a timestamped JSON file for backup or transfer. Import a previously exported file to restore cookies across sessions or devices.
 
 ### Dark Mode
 
@@ -143,7 +147,7 @@ cookie_inspector/
 ├── cookieEditor.css      # Styles and theme tokens
 ├── fonts/                # Bundled Inter font (Latin subset) and its license
 ├── privacy-policy.html   # GitHub Pages privacy policy
-├── tests/                # End-to-end tests (Playwright) and decoder unit tests
+├── tests/                # End-to-end tests (Playwright), decoder and site-scope unit tests
 ├── screenshots/          # Screenshots used in this README
 └── icons/                # Extension icons (16px, 32px, 48px, 128px)
 ```
@@ -155,10 +159,10 @@ The tests run the real popup as an extension in Chromium, against real cookies. 
 ```bash
 npm install
 npx playwright install chromium
-npm test                # decoder unit tests, then end-to-end tests
+npm test                # decoder and site-scope unit tests, then end-to-end tests
 ```
 
-Run `npm run test:decode` or `npm run test:e2e` on their own, and set `HEADED=1` to watch the browser.
+Run `npm run test:decode`, `npm run test:scope` or `npm run test:e2e` on their own, and set `HEADED=1` to watch the browser.
 
 ### Packaging
 

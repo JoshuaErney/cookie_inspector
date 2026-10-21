@@ -2,6 +2,7 @@
 // Run with `npm run test:e2e` (set HEADED=1 to watch).
 'use strict';
 
+const fs = require('fs');
 const { launchExtension } = require('./helpers');
 
 const checks = [];
@@ -17,9 +18,14 @@ const check = (name, pass, detail) => {
 
   const pageErrors = [];
   const externalRequests = [];
+  // Fake "website" tabs opened by the scope tests; their own traffic is not the popup's.
+  const sitePages = new Set();
   page.on('pageerror', (e) => pageErrors.push(String(e.message || e)));
   app.context.on('request', (r) => {
-    if (!/^(chrome-extension|data|blob):/.test(r.url())) externalRequests.push(r.url());
+    if (/^(chrome-extension|data|blob):/.test(r.url())) return;
+    let owner = null;
+    try { owner = r.frame()?.page(); } catch (e) { /* requests with no frame */ }
+    if (!sitePages.has(owner)) externalRequests.push(r.url());
   });
 
   // ---- helpers
@@ -289,6 +295,117 @@ const check = (name, pass, detail) => {
   await page.waitForTimeout(500);
   const pasted = await cookiesNamed('pasted');
   check('paste a cookie without a path', pasted.length === 1 && pasted[0].hostOnly, pasted);
+
+  // ---------- "This site / All" scope ----------
+  // Everything above ran with no website tab open, so the popup showed every cookie. Here a fake
+  // website tab (served by Playwright, no real network) is open, as it is when the popup is used.
+  const SITE = 'www.scope-a.test';
+  const openSite = async (host) => {
+    await app.context.route(`https://${host}/**`, (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>${host}</title>` }));
+    const tab = await app.context.newPage();
+    sitePages.add(tab);
+    await tab.goto(`https://${host}/`);
+    return tab;
+  };
+  const listedDomains = () => ext(() => [...document.querySelectorAll('.domain-header .domain-info > span:first-child')].map((e) => e.textContent).sort());
+  const listedNames = () => ext(() => [...document.querySelectorAll('.cookie-item .cookie-name')].map((e) => e.textContent).sort());
+  const statsText = () => ext(() => document.getElementById('stats').textContent);
+  const pickScope = async (scope) => {
+    await page.click(`.scope-btn[data-scope="${scope}"]`);
+    await page.waitForTimeout(150);
+  };
+  const exportFile = async () => {
+    const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportBtn')]);
+    return { name: download.suggestedFilename(), cookies: JSON.parse(fs.readFileSync(await download.path(), 'utf8')) };
+  };
+
+  await ext(async (exp) => {
+    const set = (url, name, extra = {}) => chrome.cookies.set({ url, name, value: 'v', expirationDate: exp, ...extra });
+    await set('https://www.scope-a.test/', 'sa_domain', { domain: '.scope-a.test' }); // domain cookie on the parent: applies to www
+    await set('https://www.scope-a.test/', 'sa_host');                                 // host-only on www
+    await set('https://scope-a.test/', 'sa_parent_host');                              // host-only on the parent: not sent to www
+    await set('https://api.scope-a.test/', 'sa_sibling');                              // sibling subdomain
+    await set('https://cope-a.test/', 'sa_trap', { domain: '.cope-a.test' });          // text-suffix lookalike of the site
+    await set('https://other-scope.test/', 'sa_other');                                // another site entirely
+    await set('https://www.scope-a.test/', 'shadow', { domain: '.scope-a.test' });     // same name twice within the site
+    await set('https://www.scope-a.test/', 'shadow');
+    await set('https://other-scope.test/', 'only_cross');                              // same name on this site and another one
+    await set('https://www.scope-a.test/', 'only_cross');
+  }, expiresIn30Days);
+
+  const siteTab = await openSite(SITE);
+
+  // Here the popup is a page in a tab of its own (the toolbar popup cannot be opened from a test), so it
+  // must pick the most recently used *other* tab. First with the website tab in front, then with the
+  // popup tab in front, where it has to skip itself.
+  await load();
+  check('popup in a background tab: the scope toggle shows the website tab\'s hostname', (await page.locator('#scopeRow').isVisible()) && (await page.locator('#scopeHost').textContent()) === SITE);
+  await page.bringToFront();
+  await load();
+  check('popup tab in front: skips itself and shows the website tab\'s hostname', (await page.locator('#scopeHost').textContent()) === SITE);
+  check('"This site" is the default scope', (await page.locator('.scope-btn[data-scope="site"]').getAttribute('aria-pressed')) === 'true' && (await page.locator('.scope-btn[data-scope="all"]').getAttribute('aria-pressed')) === 'false');
+  check('This site: only the site\'s domains are listed', (await listedDomains()).join() === '.scope-a.test,www.scope-a.test', await listedDomains());
+  check('This site: parent domain cookie and host-only cookie shown, siblings/lookalikes/other sites hidden',
+    (await listedNames()).join() === 'only_cross,sa_domain,sa_host,shadow,shadow', await listedNames());
+  check('This site: stats count only the site', (await statsText()) === '5 cookies across 2 domains', await statsText());
+  check('This site: Duplicate only for a name repeated within the site',
+    (await page.locator('.cookie-item:has(.cookie-name:text-is("shadow")) .label.duplicate').count()) === 2 &&
+    (await row('only_cross').locator('.label.duplicate').count()) === 0);
+
+  await pickScope('all');
+  check('All: other sites and the site\'s siblings are listed again',
+    (await group('other-scope.test').count()) === 1 && (await group('api.scope-a.test').count()) === 1 && (await group('.cope-a.test').count()) === 1);
+  check('All: a name on two sites is a Duplicate again', (await page.locator('.cookie-item:has(.cookie-name:text-is("only_cross")) .label.duplicate').count()) === 2);
+  check('All: the toggle shows All as selected', (await page.locator('.scope-btn[data-scope="all"]').getAttribute('aria-pressed')) === 'true');
+  await pickScope('site');
+  check('switching back to This site narrows the list again', (await listedDomains()).join() === '.scope-a.test,www.scope-a.test');
+
+  // Search works inside the scope, and an empty result offers a way out
+  await page.fill('#searchInput', 'sa_other');
+  await page.waitForTimeout(500);
+  check('search in This site does not find another site\'s cookie', (await statsText()) === 'No matching cookies', await statsText());
+  await page.click('.btn-show-all');
+  await page.waitForTimeout(300);
+  check('"Show all sites" in the empty state switches to All and keeps the search', (await row('sa_other', 'other-scope.test').count()) === 1 && (await page.inputValue('#searchInput')) === 'sa_other');
+  await page.fill('#searchInput', '');
+  await page.waitForTimeout(500);
+  await pickScope('site');
+
+  // Live updates respect the scope
+  await ext(async () => {
+    await chrome.cookies.set({ url: 'https://www.scope-a.test/', name: 'sa_live', value: '1' });
+    await chrome.cookies.set({ url: 'https://other-scope.test/', name: 'sa_live_other', value: '1' });
+  });
+  await page.waitForTimeout(500);
+  check('live update: a new cookie for the site appears', (await row('sa_live', 'www.scope-a.test').count()) === 1);
+  check('live update: a new cookie for another site stays hidden', (await row('sa_live_other').count()) === 0);
+
+  // Export JSON covers what the scope shows
+  const siteExport = await exportFile();
+  check('Export in This site: only the site\'s cookies', siteExport.cookies.map((c) => c.name).sort().join() === 'only_cross,sa_domain,sa_host,sa_live,shadow,shadow', siteExport.cookies.map((c) => c.name));
+  check('Export in This site: file name carries the hostname', /^cookies_www\.scope-a\.test_\d{4}-\d{2}-\d{2}\.json$/.test(siteExport.name), siteExport.name);
+  check('Export in This site: toast names the site', /^Exported 6 cookies for www\.scope-a\.test$/.test(await toast()), await toast());
+  await pickScope('all');
+  const allExport = await exportFile();
+  check('Export in All: every cookie, plain file name', allExport.cookies.some((c) => c.name === 'sa_other') && allExport.cookies.some((c) => c.name === 'sa_sibling') && /^cookies_\d{4}-\d{2}-\d{2}\.json$/.test(allExport.name), allExport.name);
+
+  // A site with no cookies
+  const emptyTab = await openSite('empty-scope.test');
+  await page.bringToFront();
+  await load();
+  check('site with no cookies: says so', (await statsText()) === 'No cookies for empty-scope.test', await statsText());
+  check('site with no cookies: empty state offers "Show all sites"', (await page.locator('.empty-state .btn-show-all').count()) === 1);
+  await page.click('.btn-show-all');
+  await page.waitForTimeout(300);
+  check('...and it shows everything', /cookies across/.test(await statsText()) && (await group('other-scope.test').count()) === 1);
+  await emptyTab.close();
+
+  // No website in the window: the toggle is hidden and everything is shown
+  await siteTab.close();
+  await page.bringToFront();
+  await load();
+  check('no website tab: the scope toggle is hidden', !(await page.locator('#scopeRow').isVisible()));
+  check('no website tab: shows all cookies', (await group('other-scope.test').count()) === 1 && /cookies across/.test(await statsText()), await statsText());
 
   check('no uncaught page errors during the run', pageErrors.length === 0, pageErrors);
 

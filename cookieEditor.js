@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let allCookies    = [];
   let currentSort   = 'domain';
   let currentFilter = 'all';
+  let currentScope  = 'all';           // 'site' = only the active tab's site, 'all' = every cookie
+  let activeSite    = null;            // hostname of the active tab, or null when it has no site
   let pinnedDomains = new Set();
   let renderedCookies = [];            // cookies in the order last rendered; rows refer to them by index
   let renderedDomains = [];            // domain groups in the order last rendered
@@ -205,6 +207,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cookieKey = (c) =>
     [c.partitionKey?.topLevelSite ?? '', c.domain, c.path, c.name].join('\u0000');
 
+  // Site scope: "This site" shows the cookies that apply to the active tab's hostname.
+
+  // Hostname of an http(s) URL; null for anything else (chrome://, about:, file:, extension pages).
+  const siteFromUrl = (url) => {
+    if (typeof url !== 'string') return null;
+    try {
+      const u = new URL(url);
+      return u.protocol === 'http:' || u.protocol === 'https:' ? u.hostname.replace(/^\[|\]$/g, '') : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // A domain cookie (".example.com") applies to that host and its subdomains. A host-only
+  // cookie ("example.com") applies to that exact host only. Subdomains are matched on a
+  // label boundary, so ".cope.test" does not match "www.scope.test".
+  const cookieMatchesSite = (cookie, host) => {
+    const domain = String(cookie.domain).toLowerCase();
+    if (!domain.startsWith('.')) return domain === host;
+    const bare = domain.slice(1);
+    return host === bare || host.endsWith(`.${bare}`);
+  };
+
+  // Hostname of the site the user is looking at, or null if there isn't one.
+  // In the toolbar popup that is the active tab of the current window. When this page is open
+  // in a tab of its own (development, tests) the active tab is the page itself, which has no
+  // site, so it uses the most recently used other tab in the same window instead.
+  const getActiveSite = async () => {
+    try {
+      const self = await chrome.tabs.getCurrent(); // undefined in the toolbar popup
+      let tab;
+      if (self) {
+        const others = (await chrome.tabs.query({ windowId: self.windowId })).filter((t) => t.id !== self.id);
+        tab = others.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+      } else {
+        [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      }
+      return siteFromUrl(tab?.url);
+    } catch (e) {
+      return null;
+    }
+  };
+  // End of site scope
+
   const SAME_SITE = {
     no_restriction: 'no_restriction', none: 'no_restriction',
     lax: 'lax', strict: 'strict', unspecified: 'unspecified',
@@ -293,6 +339,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const refreshCookies = async () => {
     allCookies = await loadAllCookies();
+    render();
+  };
+
+
+  // Scope: which cookies the list, stats and Export JSON cover
+
+  const isSiteScope = () => currentScope === 'site' && activeSite !== null;
+
+  const scopedCookies = () => (isSiteScope() ? allCookies.filter((c) => cookieMatchesSite(c, activeSite)) : allCookies);
+
+  const scopeRow     = document.getElementById('scopeRow');
+  const scopeButtons = scopeRow.querySelectorAll('.scope-btn');
+
+  const updateScopeUI = () => {
+    scopeRow.hidden = activeSite === null;
+    document.getElementById('scopeHost').textContent = activeSite ?? '';
+    scopeRow.querySelector('[data-scope="site"]').title = activeSite ? `Only cookies that apply to ${activeSite}` : '';
+    scopeButtons.forEach((btn) => {
+      const on = btn.dataset.scope === (isSiteScope() ? 'site' : 'all');
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    });
+  };
+
+  const setScope = (scope) => {
+    currentScope = scope;
+    updateScopeUI();
     render();
   };
 
@@ -619,8 +692,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const render = (filterText = searchInput.value) => {
     const lowerFilter = filterText.toLowerCase();
 
+    // Everything below works on the scoped cookies, so in "This site" a cookie is only
+    // flagged Duplicate when the same name exists on more than one domain of that site.
+    const scoped = scopedCookies();
+
     const domainsByName = {};
-    allCookies.forEach(c => {
+    scoped.forEach(c => {
       if (!domainsByName[c.name]) domainsByName[c.name] = new Set();
       domainsByName[c.name].add(c.domain);
     });
@@ -630,7 +707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .map(([name]) => name)
     );
 
-    const searched = allCookies.filter(c =>
+    const searched = scoped.filter(c =>
       c.domain.toLowerCase().includes(lowerFilter) ||
       c.name.toLowerCase().includes(lowerFilter) ||
       c.value.toLowerCase().includes(lowerFilter)
@@ -685,15 +762,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (filtered.length === 0) {
       const isSearch = filterText.length > 0 || currentFilter !== 'all';
-      statsDisplay.textContent = isSearch ? 'No matching cookies' : 'No cookies found';
+      const site     = isSiteScope() ? escHtml(activeSite) : null;
+      statsDisplay.textContent = isSearch ? 'No matching cookies' : site ? `No cookies for ${activeSite}` : 'No cookies found';
       cookieList.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">${isSearch ? '🔍' : '🍪'}</div>
-          <div class="empty-title">${isSearch ? 'No results' : 'No cookies found'}</div>
+          <div class="empty-title">${isSearch ? 'No results' : site ? 'No cookies for this site' : 'No cookies found'}</div>
           <div class="empty-body">${isSearch
-            ? 'Try adjusting your search or filter.'
-            : 'There are no cookies stored in your browser.'
+            ? `Try adjusting your search or filter${site ? `, or look at all sites instead of ${site}` : ''}.`
+            : site
+              ? `${site} has not set any cookies in this browser.`
+              : 'There are no cookies stored in your browser.'
           }</div>
+          ${site ? '<button class="btn-secondary btn-show-all">Show all sites</button>' : ''}
         </div>`;
       return;
     }
@@ -702,7 +783,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const unpinned = groupEntries.filter(([d]) => !pinnedDomains.has(d));
     groupEntries = [...pinned, ...unpinned];
 
-    statsDisplay.textContent = `${filtered.length} cookies across ${groupEntries.length} domains`;
+    statsDisplay.textContent = `${plural(filtered.length, 'cookie')} across ${plural(groupEntries.length, 'domain')}`;
     cookieList.innerHTML = groupEntries
       .map(([d, c]) => domainGroupHTML(d, renderedDomains.push(d) - 1, c, duplicateNames))
       .join('');
@@ -722,11 +803,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { pinned_domains: savedPins = [] } = await chrome.storage.local.get(['pinned_domains']);
   pinnedDomains = new Set(savedPins);
 
+  activeSite   = await getActiveSite();
+  currentScope = activeSite ? 'site' : 'all'; // no site (new tab, chrome://) -> show everything
+  updateScopeUI();
+
   allCookies = await loadAllCookies();
   render();
 
 
   // Events
+
+  scopeButtons.forEach((btn) => btn.addEventListener('click', () => setScope(btn.dataset.scope)));
 
   chrome.cookies.onChanged.addListener(({ cookie, removed }) => {
     const key = cookieKey(cookie);
@@ -778,6 +865,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cookie   = row ? renderedCookies[Number(row.dataset.i)] : null;
     const groupBtn = target.closest('[data-g]');
     const domain   = groupBtn ? renderedDomains[Number(groupBtn.dataset.g)] : null;
+
+    if (target.classList.contains('btn-show-all')) {
+      setScope('all');
+      return;
+    }
 
     if (target.closest('.btn-expand') && cookie) {
       const btn    = target.closest('.btn-expand');
@@ -876,14 +968,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   exportBtn.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(allCookies, null, 2)], { type: 'application/json' });
+    // Exports what the scope shows (search and filters are ignored, as before).
+    const exported = scopedCookies();
+    const site     = isSiteScope() ? activeSite : null;
+    const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `cookies_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `cookies_${site ? `${site.replace(/[^a-z0-9.-]/gi, '_')}_` : ''}${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast(`Exported ${allCookies.length} cookies`);
+    showToast(`Exported ${plural(exported.length, 'cookie')}${site ? ` for ${site}` : ''}`);
   });
 
   importBtn.addEventListener('click', () => importFile.click());

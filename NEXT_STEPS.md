@@ -1,6 +1,6 @@
 # Cookie Inspector: pick-up-later notes
 
-Written 2026-10-20 at the end of the code-review and bug-fix session. Read this first when you resume. It covers where things stand, what has been decided, what to build next and in what order, and the gotchas that cost time in this session.
+Written 2026-10-20 at the end of the code-review and bug-fix session, and updated 2026-10-21 after roadmap item 1 was built. Read this first when you resume. It covers where things stand, what has been decided, what to build next and in what order, and the gotchas that cost time.
 
 ## 1. Where things stand
 
@@ -9,27 +9,19 @@ Written 2026-10-20 at the end of the code-review and bug-fix session. Read this 
 | Local repo | `~/Documents/GitHub/cookie_inspector` |
 | GitHub | `https://github.com/JoshuaErney/cookie_inspector` |
 | Store listing | https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm (checked 2026-10-20: live, v2.0.0, updated May 1 2026, 3 users, no ratings; may have changed since) |
-| Working branch | `fix/review-bugs`, 5 commits on top of `main` (`44437d0`) |
-| Pushed? | **No.** The push was blocked in that session (see section 6). |
-| Working tree | Clean when the notes were written (this file may be untracked) |
+| `main` | Contains PR #1 (the review fixes): merge commit `731f532`. |
+| Working branch | `feature/site-scope-toggle`, off `main`: roadmap item 1, committed locally. |
+| Pushed? | **No.** Not pushed from the session (no network on the device shell, see section 6). Run the push below yourself. |
 | Manifest version | `2.0.0`, same as the live listing. **Bump it before uploading a new package**; the store rejects a repeat version. |
-
-Commits on `fix/review-bugs`, oldest first:
-
-1. `a922b8e` Fix data-loss and reporting bugs found in code review
-2. `c9fed04` Bundle Inter locally instead of loading it from Google Fonts
-3. `4456dca` Fix privacy policy markup, contact link and storage wording
-4. `819749e` Add end-to-end and decoder tests
-5. `b2ce370` Link the live Chrome Web Store listing
 
 **To push (run in your own terminal):**
 
 ```bash
 cd ~/Documents/GitHub/cookie_inspector
-git push -u origin fix/review-bugs
+git push -u origin feature/site-scope-toggle
 ```
 
-Then open a pull request into `main` when you are ready. Nothing has been merged to `main`. Do not merge or publish to the store until you have clicked through the branch in your own Chrome (section 5).
+Then open a pull request into `main` when you are ready. Do not merge or publish to the store until you have clicked through the branch in your own Chrome (section 5).
 
 ## 2. What the review session fixed
 
@@ -64,29 +56,29 @@ All of these were reproduced in a real Chromium before fixing, and the tests now
 
 Effort is a rough guess: S = small, M = medium.
 
-1. **"This site / All" toggle (S).** Default scope becomes the current tab's site (cookies whose domain matches the tab hostname or a parent domain); "All" is today's view. Biggest practical win: most opens are about one site, and rendering drops from ~0.6 s at 3,000 cookies to near-instant. Fall back to All on tabs with no site (new tab, `chrome://`). Fits well with optional host permissions later.
+1. **DONE (on `feature/site-scope-toggle`, awaiting your click-through and push): "This site / All" toggle (S).** Default scope becomes the current tab's site (cookies whose domain matches the tab hostname or a parent domain); "All" is today's view. Biggest practical win: most opens are about one site, and rendering drops from ~0.6 s at 3,000 cookies to near-instant. Fall back to All on tabs with no site (new tab, `chrome://`). Fits well with optional host permissions later.
+   *As built:* a toggle under the header ("This site <hostname>" | "All sites"), hidden when the tab has no site. Choices made while building it (change them if you disagree): (a) matching follows what the browser would send: a domain cookie (`.example.com`) matches that host and its subdomains, a host-only cookie matches its exact host only, so a host-only cookie on the parent or a sibling subdomain is not shown in This site; (b) the choice is not remembered, each open starts on This site; (c) search, filters, stats and **Export JSON** follow the scope (the file name includes the hostname), while **Save New Snapshot** still saves every cookie (per-domain snapshots are item 5); (d) **Duplicate** is computed inside the scope, so in This site it flags the same name on more than one domain of that site rather than names shared with other sites; (e) partitioned (CHIPS) cookies from third parties embedded on the page are only in All sites; (f) the empty state offers "Show all sites"; (g) the stats line pluralization ("1 cookie") was fixed on the way.
 2. **Undo for deletes (S–M).** Keep removed cookies in memory for ~10 s and show "Deleted N cookies — Undo"; undo re-creates them with `toSetDetails`. Replaces confirmation dialogs and backs up Clear Domain. Closing the popup loses the undo unless it is held in `chrome.storage.session`.
 3. **Cookie size display (S).** Bytes per cookie, per domain and in total, with sort-by-size. Helps diagnose "431 / Request Header Too Large" (browsers cap a single cookie around 4 KB; servers often reject a combined `Cookie` header somewhere around 8 KB, varies by server). Most useful together with "This site".
 4. **`cookies.txt` export and "Copy as cURL" (S).** Netscape format for `curl -b` / `wget` / `yt-dlp` (HttpOnly lines use the `#HttpOnly_` prefix). Add a one-line warning that the output contains live session tokens.
 5. **Per-domain snapshots with Merge and Replace (M).** Add a `domain` field to snapshots; existing snapshots stay "all sites". Snapshots shrink from MBs to KBs. Replace limited to per-domain snapshots (decision 4).
 6. **Import preview (M).** Before applying: "N new, N overwrite existing, N invalid (with reasons)" plus affected domains, then confirm. Reuse `validateCookie`.
-7. **Smarter security flags (M, needs design).** Today every cookie without HttpOnly gets the `warning-bg` row class and a "No HttpOnly" label (`cookieEditor.js` ~L558–563), and the filters `no-httponly` / `insecure` sit near L642. That flags analytics and consent cookies that scripts are meant to read, so users will learn to ignore it. Better: flag missing HttpOnly only on cookies that look like sessions or auth tokens, add `__Host-` / `__Secure-` misuse and similar checks, and label them "heuristic" (a false "looks fine" is worse than no flag).
+7. **Smarter security flags (M, needs design).** Today every cookie without HttpOnly gets the `warning-bg` row class and a "No HttpOnly" label (`cookieEditor.js` ~L631–636), and the filters `no-httponly` / `insecure` sit near L719. That flags analytics and consent cookies that scripts are meant to read, so users will learn to ignore it. Better: flag missing HttpOnly only on cookies that look like sessions or auth tokens, add `__Host-` / `__Secure-` misuse and similar checks, and label them "heuristic" (a false "looks fine" is worse than no flag).
 
 ## 5. Other open items
 
 For Joshua to do:
 
-- Push the branch (section 1).
+- Push `feature/site-scope-toggle` (section 1).
 - `npm install` locally and commit the generated `package-lock.json` (it could not be generated in the sandbox).
-- Load the branch unpacked in your own Chrome (`chrome://extensions` → Developer mode → Load unpacked) and click through edit, delete, import, restore and snapshot save. The tests only ran in headless Chromium.
+- Load the branch unpacked in your own Chrome (`chrome://extensions` → Developer mode → Load unpacked) and click through edit, delete, import, restore and snapshot save, and open the popup on a real website to check the This site / All sites toggle. The tests only ran in headless Chromium, and a test cannot open the toolbar popup itself: it opens the popup page in a tab, which takes a different code path in `getActiveSite()` than the real popup does (the real path is covered only by stubbed unit tests).
 - Bump `version` in `manifest.json` before building a store package, and confirm the privacy-policy URL on the listing is the hosted `privacy-policy.html`.
 
 Known gaps and backlog:
 
 - Per-render cost is unchanged (~0.5–0.65 s at 3,000 cookies, ~114k DOM nodes). Options: lazy-render the detail panels, or virtualize the list.
-- Stats line says "1 cookies" (pluralization).
 - README says Restore goes "back to that state" (true only for Replace).
-- Accessibility pass (keyboard, labels, contrast), incognito (`storeId`) support, CSP `style-src` hardening, WOFF2 fonts (brotli was unavailable), splitting `cookieEditor.js` (915 lines) into modules.
+- Accessibility pass (keyboard, labels, contrast), incognito (`storeId`) support, CSP `style-src` hardening, WOFF2 fonts (brotli was unavailable), splitting `cookieEditor.js` (about 1,000 lines) into modules.
 
 ## 6. Technical notes and gotchas
 
@@ -97,6 +89,8 @@ Known gaps and backlog:
 - `chrome.storage.local` keys: `cookie_snapshots`, `pinned_domains`, `theme`. Snapshot limit is 10 (`snapshots.length >= 10`).
 - Manifest: `permissions: ["cookies","storage"]`, `host_permissions: ["<all_urls>"]`, CSP `script-src 'self'; object-src 'self'`.
 - `tests/decode.test.js` extracts code between the comment `// Decoding for the detail panel` and the line `  const debounce` in `cookieEditor.js`. If you rename or move either marker, update the test.
+- `tests/scope.test.js` does the same for the block from `// Site scope:` to `// End of site scope` (`siteFromUrl`, `cookieMatchesSite`, `getActiveSite`). It runs `getActiveSite` against a stand-in `chrome`, so keep that block free of other dependencies.
+- `tab.url` is not filled in for the extension's own pages, so the popup cannot recognise "I am the active tab" by URL. `getActiveSite()` uses `chrome.tabs.getCurrent()` instead: undefined in the toolbar popup (use the active tab), set when the page is open in a tab (use the most recently used other tab in that window).
 - The popup is the whole extension: `cookieEditor.html` / `.css` / `.js`. `index.html` and `privacy-policy.html` are the GitHub Pages site and are not part of the package.
 
 **Running things**
@@ -104,8 +98,9 @@ Known gaps and backlog:
 ```bash
 npm install
 npx playwright install chromium
-npm test              # 37 decoder checks, then 50 end-to-end checks
+npm test              # decoder checks, scope checks, then 74 end-to-end checks
 npm run test:decode
+npm run test:scope
 npm run test:e2e      # HEADED=1 to watch
 ```
 
@@ -118,8 +113,9 @@ Store package contents: `manifest.json`, `cookieEditor.html`, `cookieEditor.css`
 - The cloud sandbox cannot reach `registry.npmjs.org` or GitHub raw hosts (proxy 403). The shell on Joshua's machine (a Linux VM mounted at `$HOME/mnt/cookie_inspector`) has no outbound network either, and `git push` from it fails with a 403 from the proxy. The `add_repo` route needs his GitHub account linked in claude.ai, and the cloud `gh` token was invalid. **Pushing will not work from a session until the GitHub account is linked; otherwise he runs the push himself.**
 - The device shell cannot delete files unless `device_request_delete_permission` is granted for the session. If git commands leave `.lock` or `tmp_obj_*` files, that is why.
 - No git identity is configured on the device. Commits were made with `git -c user.name="Joshua Erney" -c user.email="joshuaerney@icloud.com"` (no config changed), with the `Co-Authored-By` and `Claude-Session` trailers.
+- Tests can be run in the cloud container instead: it has Playwright 1.56 and Chromium preinstalled. Stage the repo files there (not `.git`), `ln -s /opt/npm-tools/node_modules node_modules`, then `npm test` (about 25 s). Edit there, then write the changed files back with `device_commit_files`.
 - Never push without being asked. Push to a branch, not `main`.
 
 ## 7. Starter message for the next session
 
-> Resume Cookie Inspector from `NEXT_STEPS.md` (also in the Cookie Inspector project). Check whether `fix/review-bugs` has been pushed, then start on roadmap item 1, the "This site / All" toggle, on a new branch off `fix/review-bugs`. Keep the existing tests passing and add tests for the new behavior.
+> Resume Cookie Inspector from `NEXT_STEPS.md` (also in the Cookie Inspector project). Check whether `feature/site-scope-toggle` has been pushed and merged, then start on roadmap item 2, Undo for deletes, on a new branch off `main` (or off `feature/site-scope-toggle` if it is not merged yet). Keep the existing tests passing and add tests for the new behavior.
