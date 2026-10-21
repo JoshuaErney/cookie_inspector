@@ -291,6 +291,9 @@ cookie_inspector/
 ├── index.html            # Website (GitHub Pages)
 ├── privacy-policy.html   # Privacy policy (GitHub Pages)
 ├── tests/                # End-to-end tests (Playwright), decoder and site-scope unit tests
+├── package.json          # Dev tooling only (tests, screenshots, store images); not part of the extension
+├── LICENSE               # MIT
+├── NEXT_STEPS.md         # Pick-up-later notes: status, decisions, roadmap
 └── graphic-assets/       # Every image (see graphic-assets/README.md)
     ├── icons/            # Extension icons (16px, 32px, 48px, 128px), used by manifest.json
     ├── logo/             # Logo sources (SVG), 1024px master and wordmark versions

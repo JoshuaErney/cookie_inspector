@@ -1,6 +1,6 @@
 # Cookie Inspector: pick-up-later notes
 
-Written 2026-10-20 at the end of the code-review and bug-fix session, and updated 2026-10-21 after roadmap item 1 was built. Read this first when you resume. It covers where things stand, what has been decided, what to build next and in what order, and the gotchas that cost time.
+Written 2026-10-20 at the end of the code-review and bug-fix session, and updated 2026-10-21 after roadmap item 1 was built and merged and the 3.0.0 store package was checked. Read this first when you resume. It covers where things stand, what has been decided, what to build next and in what order, and the gotchas that cost time.
 
 ## 1. Where things stand
 
@@ -8,20 +8,23 @@ Written 2026-10-20 at the end of the code-review and bug-fix session, and update
 |---|---|
 | Local repo | `~/Documents/GitHub/cookie_inspector` |
 | GitHub | `https://github.com/JoshuaErney/cookie_inspector` |
-| Store listing | https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm (checked 2026-10-20: live, v2.0.0, updated May 1 2026, 3 users, no ratings; may have changed since) |
-| `main` | Contains PR #1 (the review fixes): merge commit `731f532`. |
-| Working branch | `feature/site-scope-toggle`, off `main`: roadmap item 1, committed locally. |
-| Pushed? | **No.** Not pushed from the session (no network on the device shell, see section 6). Run the push below yourself. |
-| Manifest version | `2.0.0`, same as the live listing. **Bump it before uploading a new package**; the store rejects a repeat version. |
+| Store listing | https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm (checked 2026-10-20: live, v2.0.0, updated May 1 2026, 3 users, no ratings; not rechecked since, and whether 3.0.0 has been uploaded is not recorded here) |
+| `main` | Contains PR #1 (the review fixes, merge `731f532`), PR #2 (the "This site / All sites" toggle, merge `d6f1a25`), the new icons and logo (`5f35b0f`), and the move of every image into `graphic-assets/` plus the store images (`9fd4b7a`). Matched `origin/main` when this was written. |
+| Working branch | None. `feature/site-scope-toggle` and `fix/review-bugs` are both merged (their remote branches still exist and can be deleted). Start new work on a new branch off `main`. |
+| Uncommitted | When this was written: the `package.json` version bump to `3.0.0`, the README project-tree fix and this file. Commit them when you are ready. |
+| Manifest version | `3.0.0` (`package.json` matches). The live listing was `2.0.0` when last checked, so `3.0.0` is higher. Bump it again before every later upload; the store rejects a repeated version. |
 
-**To push (run in your own terminal):**
+**Store package for 3.0.0 (checked 2026-10-21 with a dry run outside the repo):** 15 entries, 161 KB, `manifest.json` at the top level, no stray files, and every file the manifest, HTML and CSS reference is inside the zip. The decoder and scope unit tests and all 74 end-to-end checks pass on exactly these files. Build it with:
 
 ```bash
 cd ~/Documents/GitHub/cookie_inspector
-git push -u origin feature/site-scope-toggle
+zip -r ../cookie-inspector-3.0.0.zip \
+  manifest.json cookieEditor.html cookieEditor.css cookieEditor.js fonts graphic-assets/icons \
+  -x "*.DS_Store"
+unzip -l ../cookie-inspector-3.0.0.zip
 ```
 
-Then open a pull request into `main` when you are ready. Do not merge or publish to the store until you have clicked through the branch in your own Chrome (section 5).
+Listing material is in `graphic-assets/store/`: `listing-description.txt`, five 1280 x 800 screenshots in `screenshots/`, and the 440 x 280 and 1400 x 560 promo tiles. All are opaque RGB PNGs. Two checks are still yours (section 5): a click-through of the real toolbar popup in your own Chrome, and confirming the hosted privacy-policy URL loads.
 
 ## 2. What the review session fixed
 
@@ -56,9 +59,9 @@ All of these were reproduced in a real Chromium before fixing, and the tests now
 
 Effort is a rough guess: S = small, M = medium.
 
-1. **DONE (on `feature/site-scope-toggle`, awaiting your click-through and push): "This site / All" toggle (S).** Default scope becomes the current tab's site (cookies whose domain matches the tab hostname or a parent domain); "All" is today's view. Biggest practical win: most opens are about one site, and rendering drops from ~0.6 s at 3,000 cookies to near-instant. Fall back to All on tabs with no site (new tab, `chrome://`). Fits well with optional host permissions later.
+1. **DONE and merged (PR #2, shipped in 3.0.0; the real toolbar-popup path still needs your click-through, section 5): "This site / All" toggle (S).** Default scope becomes the current tab's site (cookies whose domain matches the tab hostname or a parent domain); "All" is today's view. Biggest practical win: most opens are about one site, and rendering drops from ~0.6 s at 3,000 cookies to near-instant. Fall back to All on tabs with no site (new tab, `chrome://`). Fits well with optional host permissions later.
    *As built:* a toggle under the header ("This site <hostname>" | "All sites"), hidden when the tab has no site. Choices made while building it (change them if you disagree): (a) matching follows what the browser would send: a domain cookie (`.example.com`) matches that host and its subdomains, a host-only cookie matches its exact host only, so a host-only cookie on the parent or a sibling subdomain is not shown in This site; (b) the choice is not remembered, each open starts on This site; (c) search, filters, stats and **Export JSON** follow the scope (the file name includes the hostname), while **Save New Snapshot** still saves every cookie (per-domain snapshots are item 5); (d) **Duplicate** is computed inside the scope, so in This site it flags the same name on more than one domain of that site rather than names shared with other sites; (e) partitioned (CHIPS) cookies from third parties embedded on the page are only in All sites; (f) the empty state offers "Show all sites"; (g) the stats line pluralization ("1 cookie") was fixed on the way.
-2. **Undo for deletes (S–M).** Keep removed cookies in memory for ~10 s and show "Deleted N cookies — Undo"; undo re-creates them with `toSetDetails`. Replaces confirmation dialogs and backs up Clear Domain. Closing the popup loses the undo unless it is held in `chrome.storage.session`.
+2. **Undo for deletes (S–M).** Keep removed cookies in memory for ~10 s and show "Deleted N cookies — Undo"; undo re-creates them with `toSetDetails`. Replaces confirmation dialogs and backs up Clear Domain. Closing the popup loses the undo unless it is held in `chrome.storage.session`. When it ships, update the "no undo" wording in `graphic-assets/store/listing-description.txt` and anywhere in the README and website that says deletes cannot be undone.
 3. **Cookie size display (S).** Bytes per cookie, per domain and in total, with sort-by-size. Helps diagnose "431 / Request Header Too Large" (browsers cap a single cookie around 4 KB; servers often reject a combined `Cookie` header somewhere around 8 KB, varies by server). Most useful together with "This site".
 4. **`cookies.txt` export and "Copy as cURL" (S).** Netscape format for `curl -b` / `wget` / `yt-dlp` (HttpOnly lines use the `#HttpOnly_` prefix). Add a one-line warning that the output contains live session tokens.
 5. **Per-domain snapshots with Merge and Replace (M).** Add a `domain` field to snapshots; existing snapshots stay "all sites". Snapshots shrink from MBs to KBs. Replace limited to per-domain snapshots (decision 4).
@@ -69,10 +72,12 @@ Effort is a rough guess: S = small, M = medium.
 
 For Joshua to do:
 
-- Push `feature/site-scope-toggle` (section 1).
+- Commit the uncommitted edits listed in section 1.
 - `npm install` locally and commit the generated `package-lock.json` (it could not be generated in the sandbox).
-- Load the branch unpacked in your own Chrome (`chrome://extensions` → Developer mode → Load unpacked) and click through edit, delete, import, restore and snapshot save, and open the popup on a real website to check the This site / All sites toggle. The tests only ran in headless Chromium, and a test cannot open the toolbar popup itself: it opens the popup page in a tab, which takes a different code path in `getActiveSite()` than the real popup does (the real path is covered only by stubbed unit tests).
-- Bump `version` in `manifest.json` before building a store package, and confirm the privacy-policy URL on the listing is the hosted `privacy-policy.html`.
+- Load the repo unpacked in your own Chrome (`chrome://extensions` → Developer mode → Load unpacked) and click through edit, delete, import, restore and snapshot save, and open the popup on a real website to check the This site / All sites toggle. The tests only ran in headless Chromium, and a test cannot open the toolbar popup itself: it opens the popup page in a tab, which takes a different code path in `getActiveSite()` than the real popup does (the real path is covered only by stubbed unit tests).
+- Confirm the hosted privacy policy loads at https://joshuaerney.github.io/cookie_inspector/privacy-policy.html (a session cannot fetch it, section 6) and that this is the URL on the listing.
+- In the Developer Dashboard, fill in the Privacy tab: the single purpose, a justification for `cookies`, `storage` and access to all sites (the "Why it asks for these permissions" text in `listing-description.txt` is a starting point), and the data-usage disclosures. Upload `graphic-assets/icons/icon128.png` if the dashboard asks for a store icon.
+- Bump `version` in `manifest.json` (and `package.json`) before every later upload.
 
 Known gaps and backlog:
 
@@ -88,7 +93,7 @@ Known gaps and backlog:
 - `chrome.storage.local` keys: `cookie_snapshots`, `pinned_domains`, `theme`. Snapshot limit is 10 (`snapshots.length >= 10`).
 - Manifest: `permissions: ["cookies","storage"]`, `host_permissions: ["<all_urls>"]`, CSP `script-src 'self'; object-src 'self'`.
 - `tests/decode.test.js` extracts code between the comment `// Decoding for the detail panel` and the line `  const debounce` in `cookieEditor.js`. If you rename or move either marker, update the test.
-- README, the website (`index.html`, `privacy-policy.html`) and `graphic-assets/screenshots/` were rewritten on 2026-10-21 to cover every feature. The privacy text lives in two places (`index.html` and `privacy-policy.html`): keep them in sync. `npm run screenshots` regenerates the images from demo data. The v1.0 images and the old logo files were deleted when the new logo (`logo/`, see `logo/README.md`) replaced them. When a roadmap item changes the UI or behavior, update the README section for it and re-run the screenshots.
+- README, the website (`index.html`, `privacy-policy.html`) and `graphic-assets/screenshots/` were rewritten on 2026-10-21 to cover every feature. The privacy text lives in two places (`index.html` and `privacy-policy.html`): keep them in sync. `npm run screenshots` regenerates the images from demo data. The v1.0 images and the old logo files were deleted when the new logo (`graphic-assets/logo/`, see its `README.md`) replaced them. When a roadmap item changes the UI or behavior, update the README section for it and re-run the screenshots.
 - `tests/scope.test.js` does the same for the block from `// Site scope:` to `// End of site scope` (`siteFromUrl`, `cookieMatchesSite`, `getActiveSite`). It runs `getActiveSite` against a stand-in `chrome`, so keep that block free of other dependencies.
 - `tab.url` is not filled in for the extension's own pages, so the popup cannot recognise "I am the active tab" by URL. `getActiveSite()` uses `chrome.tabs.getCurrent()` instead: undefined in the toolbar popup (use the active tab), set when the page is open in a tab (use the most recently used other tab in that window).
 - The popup is the whole extension: `cookieEditor.html` / `.css` / `.js`. `index.html` and `privacy-policy.html` are the GitHub Pages site and are not part of the package.
@@ -114,8 +119,10 @@ Store package contents: `manifest.json`, `cookieEditor.html`, `cookieEditor.css`
 - The device shell cannot delete files unless `device_request_delete_permission` is granted for the session. If git commands leave `.lock` or `tmp_obj_*` files, that is why.
 - No git identity is configured on the device. Commits were made with `git -c user.name="Joshua Erney" -c user.email="joshuaerney@icloud.com"` (no config changed), with the `Co-Authored-By` and `Claude-Session` trailers.
 - Tests can be run in the cloud container instead: it has Playwright 1.56 and Chromium preinstalled. Stage the repo files there (not `.git`), `ln -s /opt/npm-tools/node_modules node_modules`, then `npm test` (about 25 s). Edit there, then write the changed files back with `device_commit_files`.
+- Access to the repo folder has to be granted for each session with `device_request_folder_access` (`~/Documents/GitHub/cookie_inspector`).
+- `WebFetch` cannot reach `chromewebstore.google.com` or `joshuaerney.github.io` (not on the session allowlist), so a session cannot check the live listing or the hosted pages. Ask Joshua to look in his browser.
 - Never push without being asked. Push to a branch, not `main`.
 
 ## 7. Starter message for the next session
 
-> Resume Cookie Inspector from `NEXT_STEPS.md` (also in the Cookie Inspector project). Check whether `feature/site-scope-toggle` has been pushed and merged, then start on roadmap item 2, Undo for deletes, on a new branch off `main` (or off `feature/site-scope-toggle` if it is not merged yet). Keep the existing tests passing and add tests for the new behavior.
+> Resume Cookie Inspector from `NEXT_STEPS.md` (also in the Cookie Inspector project). Check `git status` and whether the 3.0.0 package has been uploaded and approved, then start on roadmap item 2, Undo for deletes, on a new branch off `main`. Keep the existing tests passing and add tests for the new behavior.
