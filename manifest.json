@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cookie Inspector",
   "short_name": "Cookie Inspector",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "author": "joshuaerney",
   "description": "A secure, offline-first tool to inspect, modify, and manage your browser cookies.",
   "offline_enabled": true,

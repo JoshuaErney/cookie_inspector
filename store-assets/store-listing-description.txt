@@ -1,0 +1,41 @@
+Cookie Inspector opens on the site you are looking at and shows the cookies that page can use. Read them, decode them, edit them, and keep a copy, all without anything leaving your browser.
+
+NEW: THIS SITE / ALL SITES
+Click the toolbar icon on any website and Cookie Inspector lists only that site's cookies, including cookies set for its parent domain. One click on "All sites" shows every cookie in the browser. Search, filters, the stats line and Export JSON all follow the view you pick.
+
+INSPECT
+• Search by cookie name, domain, or value
+• Filter by Session, No HttpOnly, Insecure, or Duplicate cookies
+• Sort by domain, name, expiry, or cookie count, and pin the domains you check most
+• Expand any cookie to see its value, path, Secure, HttpOnly, SameSite, expiry, and host-only status
+
+DECODE
+JSON, JWT, URL-encoded, and Base64 values are decoded automatically under the raw value. JWT claims such as iat, nbf, and exp are shown as dates. Cookie Inspector does not verify JWT signatures.
+
+CREATE AND EDIT
+• Add a cookie by filling in each attribute, or paste JSON or Base64 to create many cookies at once
+• Edit any cookie; if Chrome rejects a change, the original is left untouched and you are told why
+• Checks common Chrome rules before saving, such as SameSite=None needing Secure and the __Host- and __Secure- prefix rules
+
+CLEAN UP
+• Delete a single cookie, clear a whole domain, or make a domain's cookies session-only
+• These actions have no undo, so take a snapshot or export first if you might want the cookies back
+
+SNAPSHOTS, EXPORT AND IMPORT
+• Save up to 10 named snapshots of your cookies and restore them later
+• Export the cookies in your current view as JSON, and import them again on another profile
+• Exported files and snapshots contain live session cookies, so treat them like passwords
+
+LIGHT AND DARK
+Follows your system theme, with a one-click switch.
+
+PRIVATE BY DESIGN
+Cookie Inspector is entirely offline. It has no accounts, no analytics, and makes no network requests. Theme, snapshots, and pinned domains are stored locally in your browser profile.
+
+WHY IT ASKS FOR THESE PERMISSIONS
+• cookies: to read, create, change, and delete cookies
+• storage: to remember your theme, snapshots, and pinned domains
+• access to all sites: so the cookies API can work on every domain, and so the popup can read the address of the active tab to pick "This site". That address is only compared while the popup is open and is never saved or sent anywhere.
+
+Built for Google Chrome (Manifest V3). Source code and documentation: https://github.com/JoshuaErney/cookie_inspector
+Privacy policy: https://joshuaerney.github.io/cookie_inspector/privacy-policy.html

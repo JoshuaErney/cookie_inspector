@@ -292,6 +292,7 @@ cookie_inspector/
 ├── privacy-policy.html   # Privacy policy (GitHub Pages)
 ├── tests/                # End-to-end tests (Playwright), decoder and site-scope unit tests
 ├── screenshots/          # Screenshots used in this README and the website
+├── logo/                 # Logo sources (SVG), 1024px master and wordmark versions
 └── icons/                # Extension icons (16px, 32px, 48px, 128px)
 ```
 
