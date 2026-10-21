@@ -2,10 +2,7 @@
 
 A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies — with dark mode, live updates, snapshots, and import/export.
 
-<!-- Chrome Web Store badge — add once approved -->
-<!-- [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/EXTENSION_ID)](https://chrome.google.com/webstore/detail/EXTENSION_ID) -->
-
-> **Chrome Web Store listing coming soon.**
+> **[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm)**
 
 ---
 
@@ -123,7 +120,7 @@ Cookie Inspector is entirely offline. No data is ever collected, transmitted, or
 
 ### From the Chrome Web Store
 
-> Coming soon — link will be added once approved.
+[Cookie Inspector on the Chrome Web Store](https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm)
 
 ### Manual (Developer Mode)
 
