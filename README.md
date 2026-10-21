@@ -2,10 +2,7 @@
 
 A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies — with dark mode, live updates, snapshots, and import/export.
 
-<!-- Chrome Web Store badge — add once approved -->
-<!-- [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/EXTENSION_ID)](https://chrome.google.com/webstore/detail/EXTENSION_ID) -->
-
-> **Chrome Web Store listing coming soon.**
+> **[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm)**
 
 ---
 
@@ -123,7 +120,7 @@ Cookie Inspector is entirely offline. No data is ever collected, transmitted, or
 
 ### From the Chrome Web Store
 
-> Coming soon — link will be added once approved.
+[Cookie Inspector on the Chrome Web Store](https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm)
 
 ### Manual (Developer Mode)
 
@@ -144,10 +141,28 @@ cookie_inspector/
 ├── cookieEditor.html     # Popup UI
 ├── cookieEditor.js       # All application logic
 ├── cookieEditor.css      # Styles and theme tokens
+├── fonts/                # Bundled Inter font (Latin subset) and its license
 ├── privacy-policy.html   # GitHub Pages privacy policy
+├── tests/                # End-to-end tests (Playwright) and decoder unit tests
 ├── screenshots/          # Screenshots used in this README
 └── icons/                # Extension icons (16px, 32px, 48px, 128px)
 ```
+
+### Tests
+
+The tests run the real popup as an extension in Chromium, against real cookies. They are development tooling only: the extension itself has no dependencies and no build step.
+
+```bash
+npm install
+npx playwright install chromium
+npm test                # decoder unit tests, then end-to-end tests
+```
+
+Run `npm run test:decode` or `npm run test:e2e` on their own, and set `HEADED=1` to watch the browser.
+
+### Packaging
+
+`package.json`, `tests/` and `node_modules/` are not part of the extension. When zipping it for the Chrome Web Store, include only `manifest.json`, `cookieEditor.html`, `cookieEditor.css`, `cookieEditor.js`, `fonts/` and `icons/`.
 
 ---
 

@@ -19,6 +19,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSort   = 'domain';
   let currentFilter = 'all';
   let pinnedDomains = new Set();
+  let renderedCookies = [];            // cookies in the order last rendered; rows refer to them by index
+  let renderedDomains = [];            // domain groups in the order last rendered
+  const expandedKeys  = new Set();     // cookieKey()s whose detail panel is open
+  const editOriginals = new WeakMap(); // edit form element -> the cookie being edited
 
   // Icons
   const sunIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
@@ -34,10 +38,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Helpers
 
+  // Always https: it can set, overwrite and remove both Secure and non-Secure cookies,
+  // whereas an http:// URL cannot touch a Secure cookie.
   const getCookieUrl = (cookie) => {
-    const prefix = cookie.secure ? 'https://' : 'http://';
-    const domain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
-    return `${prefix}${domain}${cookie.path}`;
+    const host = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+    return `https://${host}${cookie.path || '/'}`;
   };
 
   const getRelativeTime = (expiry) => {
@@ -51,16 +56,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     return 'Expires soon';
   };
 
+  // Decoding for the detail panel: JSON, JWT, URL-encoded, and Base64/Base64url (UTF-8).
+
+  const printableRatio = (s) => {
+    if (!s.length) return 0;
+    let printable = 0;
+    for (const ch of s) if (/[\x20-\x7E\t\n\r]/.test(ch)) printable++;
+    return printable / [...s].length;
+  };
+
+  // Base64 or Base64url -> UTF-8 text, or null if the input isn't valid base64 text.
+  const base64ToText = (input, minLength = 12) => {
+    if (typeof input !== 'string') return null;
+    const s = input.trim();
+    if (s.length < minLength || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(s)) return null;
+    const b64 = s.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+    if (b64.length % 4 === 1) return null;
+    try {
+      const bin   = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
+      const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+      const text  = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(text) ? null : text;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Pretty-prints JSON objects/arrays only; bare numbers, booleans and null are not worth labelling.
+  const asJson = (s) => {
+    try {
+      const parsed = JSON.parse(s);
+      return parsed !== null && typeof parsed === 'object' ? JSON.stringify(parsed, null, 2) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const decodeJwt = (value) => {
+    const parts = value.split('.');
+    if (parts.length !== 3 || !parts[0].startsWith('eyJ')) return null;
+    try {
+      const header  = JSON.parse(base64ToText(parts[0], 2));
+      const payload = JSON.parse(base64ToText(parts[1], 2));
+      if (!header || typeof header !== 'object' || !payload || typeof payload !== 'object') return null;
+      const lines = [JSON.stringify({ header, payload }, null, 2), ''];
+      for (const claim of ['iat', 'nbf', 'exp']) {
+        if (typeof payload[claim] === 'number') lines.push(`${claim}: ${new Date(payload[claim] * 1000).toLocaleString()}`);
+      }
+      lines.push('(signature not verified)');
+      return lines.join('\n');
+    } catch (e) {
+      return null;
+    }
+  };
+
   const tryDecode = (value) => {
-    try {
-      const parsed = JSON.parse(value);
-      return { type: 'JSON', data: JSON.stringify(parsed, null, 2) };
-    } catch (e) {}
-    try {
-      const decoded = atob(value);
-      if (/[^ -~]/.test(decoded)) throw new Error();
-      return { type: 'Base64', data: decoded };
-    } catch (e) {}
+    if (!value) return null;
+
+    const json = asJson(value);
+    if (json) return { type: 'JSON', data: json };
+
+    const jwt = decodeJwt(value);
+    if (jwt) return { type: 'JWT', data: jwt };
+
+    if (/%[0-9A-Fa-f]{2}/.test(value)) {
+      try {
+        const decoded = decodeURIComponent(value);
+        const inner   = asJson(decoded);
+        return { type: inner ? 'URL-encoded JSON' : 'URL-encoded', data: inner ?? decoded };
+      } catch (e) {}
+    }
+
+    const text = base64ToText(value);
+    if (text !== null) {
+      const inner = asJson(text);
+      if (inner) return { type: 'Base64 JSON', data: inner };
+      if (printableRatio(text) >= 0.7) return { type: 'Base64', data: text };
+    }
     return null;
   };
 
@@ -77,7 +149,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
   // Converts a unix timestamp to a datetime-local input value (local time)
   const toDatetimeLocal = (unixSeconds) => {
@@ -124,6 +197,115 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.set({ theme: isNowDark ? 'dark' : 'light' });
     updateThemeUI(isNowDark);
   });
+
+
+  // Cookie helpers
+
+  // Cookie identity: name + domain + path (+ partition for CHIPS cookies).
+  const cookieKey = (c) =>
+    [c.partitionKey?.topLevelSite ?? '', c.domain, c.path, c.name].join('\u0000');
+
+  const SAME_SITE = {
+    no_restriction: 'no_restriction', none: 'no_restriction',
+    lax: 'lax', strict: 'strict', unspecified: 'unspecified',
+  };
+  const normalizeSameSite = (value, fallback = 'unspecified') =>
+    SAME_SITE[String(value ?? '').toLowerCase()] ?? fallback;
+
+  // Builds chrome.cookies.set() details from a cookie-like object.
+  // `domain` is only sent for domain cookies (leading dot). Sending it for a host-only
+  // cookie silently turns it into a domain cookie and leaves the original behind.
+  const toSetDetails = (c, { sameSiteFallback = 'unspecified' } = {}) => {
+    if (!c || typeof c.name !== 'string' || !c.name) throw new Error('Cookie has no name');
+    if (typeof c.domain !== 'string' || !c.domain)   throw new Error(`Cookie "${c.name}" has no domain`);
+    const details = {
+      url:      getCookieUrl(c),
+      name:     c.name,
+      value:    c.value == null ? '' : String(c.value),
+      path:     c.path || '/',
+      secure:   Boolean(c.secure),
+      httpOnly: Boolean(c.httpOnly),
+      sameSite: normalizeSameSite(c.sameSite, sameSiteFallback),
+    };
+    if (c.domain.startsWith('.')) details.domain = c.domain;
+    if (c.expirationDate)         details.expirationDate = Number(c.expirationDate);
+    if (c.partitionKey)           details.partitionKey = c.partitionKey;
+    return details;
+  };
+
+  const toRemoveDetails = (c) => {
+    const details = { url: getCookieUrl(c), name: c.name };
+    if (c.partitionKey) details.partitionKey = c.partitionKey;
+    return details;
+  };
+
+  // Catches the usual reasons Chrome rejects a cookie, with a message that says why.
+  const validateCookie = ({ name, domain, path, secure, sameSite }) => {
+    if (!name)   return 'Name is required';
+    if (!domain) return 'Domain is required';
+    if (/\s/.test(domain) || /[/:?#@]/.test(domain)) return 'Domain must be a hostname like example.com or .example.com';
+    if (!String(path).startsWith('/')) return 'Path must start with /';
+    if (sameSite === 'no_restriction' && !secure) return 'SameSite=None requires the Secure flag';
+    if (name.startsWith('__Secure-') && !secure)  return '__Secure- cookies require the Secure flag';
+    if (name.startsWith('__Host-')) {
+      if (!secure)                 return '__Host- cookies require the Secure flag';
+      if (domain.startsWith('.'))  return '__Host- cookies must be host-only (no leading dot)';
+      if (path !== '/')            return '__Host- cookies must use Path=/';
+    }
+    return null;
+  };
+
+  // Sets many cookies without stopping at the first failure.
+  const setCookies = async (cookies, options) => {
+    const results  = await Promise.allSettled(cookies.map(async (c) => chrome.cookies.set(toSetDetails(c, options))));
+    const rejected = results.filter((r) => r.status === 'rejected');
+    return {
+      ok:         results.length - rejected.length,
+      failed:     rejected.length,
+      firstError: rejected[0]?.reason?.message ?? null,
+    };
+  };
+
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  const reportResult = ({ ok, failed, firstError }, doneText, failText) => {
+    const total = ok + failed;
+    if (failed === 0) return showToast(doneText(ok));
+    if (ok === 0) {
+      return showToast(
+        total === 1 && firstError ? `${failText} — ${firstError}` : `${failText} — ${plural(total, 'cookie')} rejected by the browser`,
+        'error'
+      );
+    }
+    showToast(`${doneText(ok)}, but ${failed} ${failed === 1 ? 'was' : 'were'} rejected`, 'error');
+  };
+
+  // getAll({}) leaves out partitioned (CHIPS) cookies; they have to be requested separately.
+  const loadAllCookies = async () => {
+    const [plain, partitioned] = await Promise.all([
+      chrome.cookies.getAll({}),
+      chrome.cookies.getAll({ partitionKey: {} }).catch(() => []),
+    ]);
+    const byKey = new Map();
+    [...plain, ...partitioned].forEach((c) => byKey.set(cookieKey(c), c));
+    return [...byKey.values()];
+  };
+
+  const refreshCookies = async () => {
+    allCookies = await loadAllCookies();
+    render();
+  };
+
+  // Only the fields needed to recreate a cookie, so snapshots stay well under the storage quota.
+  const slimCookie = (c) => {
+    const slim = {
+      name: c.name, value: c.value, domain: c.domain, path: c.path,
+      secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
+    };
+    if (c.expirationDate) slim.expirationDate = c.expirationDate;
+    if (c.partitionKey)   slim.partitionKey = c.partitionKey;
+    return slim;
+  };
 
 
   // Snapshots
@@ -183,14 +365,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const { cookie_snapshots: snapshots = [] } = await chrome.storage.local.get(['cookie_snapshots']);
       const snapshot = snapshots.find(s => s.id === id);
       if (!snapshot) return showToast('Snapshot not found', 'error');
-      await Promise.all(snapshot.cookies.map(c => chrome.cookies.set({
-        url: getCookieUrl(c), name: c.name, value: c.value, domain: c.domain,
-        path: c.path, secure: c.secure, httpOnly: c.httpOnly,
-        expirationDate: c.expirationDate, sameSite: c.sameSite,
-      })));
-      allCookies = await chrome.cookies.getAll({});
-      render();
-      showToast('Snapshot restored');
+      const result = await setCookies(snapshot.cookies);
+      await refreshCookies();
+      reportResult(result, n => `Restored ${plural(n, 'cookie')}`, 'Restore failed');
     }
 
     if (deleteBtn) {
@@ -225,6 +402,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="form-group">
           <label class="form-label">Domain</label>
           <input class="form-input form-domain" type="text" value="${escHtml(cookie?.domain ?? '')}" placeholder=".example.com" />
+          <span class="form-hint">Start with a dot (.example.com) to include subdomains; without it the cookie is host-only</span>
         </div>
         <div class="form-group">
           <label class="form-label">Path</label>
@@ -256,13 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
         <div class="form-actions">
-          <button class="btn-primary ${isEdit ? 'btn-save-edit' : 'btn-create-cookie'}"
-            ${isEdit ? `
-              data-orig-name="${escHtml(cookie.name)}"
-              data-orig-domain="${escHtml(cookie.domain)}"
-              data-orig-path="${escHtml(cookie.path)}"
-              data-orig-secure="${cookie.secure}"
-            ` : ''}>
+          <button class="btn-primary ${isEdit ? 'btn-save-edit' : 'btn-create-cookie'}">
             ${isEdit ? 'Save Changes' : 'Create Cookie'}
           </button>
           <button class="btn-secondary ${isEdit ? 'btn-cancel-edit' : 'btn-cancel-create'}">Cancel</button>
@@ -303,6 +475,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Turns the values read from the cookie form into a cookie object (expires -> expirationDate)
+  const formToCookie = (form, extra = {}) => ({
+    ...form,
+    expirationDate: form.expires ? new Date(form.expires).getTime() / 1000 : undefined,
+    ...extra,
+  });
+
   document.getElementById('createPanel').addEventListener('click', async (e) => {
     const panel = document.getElementById('createPanel');
 
@@ -316,22 +495,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (e.target.classList.contains('btn-create-cookie')) {
-      const { name, value, domain, path, expires, sameSite, secure, httpOnly } = readForm(panel.querySelector('.tab-manual'));
-
-      if (!name)   return showToast('Name is required', 'error');
-      if (!domain) return showToast('Domain is required', 'error');
-
-      const params = { url: getCookieUrl({ secure, domain, path }), name, value, domain, path, secure, httpOnly, sameSite };
-      if (expires) params.expirationDate = new Date(expires).getTime() / 1000;
+      const form    = readForm(panel.querySelector('.tab-manual'));
+      const problem = validateCookie(form);
+      if (problem) return showToast(problem, 'error');
 
       try {
-        await chrome.cookies.set(params);
-        allCookies = await chrome.cookies.getAll({});
+        await chrome.cookies.set(toSetDetails(formToCookie(form)));
+        await refreshCookies();
         closeAllPanels();
-        render();
-        showToast(`Cookie "${name}" created`);
+        showToast(`Cookie "${form.name}" created`);
       } catch (err) {
-        showToast('Failed to create — check domain format', 'error');
+        showToast(`Failed to create — ${err.message}`, 'error');
       }
     }
 
@@ -344,36 +518,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         parsed = JSON.parse(raw);
       } catch (e) {
         try {
-          parsed = JSON.parse(atob(raw));
+          parsed = JSON.parse(base64ToText(raw, 2));
         } catch (e2) {
           return showToast('Could not parse — invalid JSON or Base64', 'error');
         }
       }
 
       const cookies = Array.isArray(parsed) ? parsed : [parsed];
-      if (cookies.some(c => !c.name || !c.domain)) {
+      if (cookies.some(c => !c || !c.name || !c.domain)) {
         return showToast('Each cookie must have a name and domain', 'error');
       }
 
-      try {
-        await Promise.all(cookies.map(c => chrome.cookies.set({
-          url:            getCookieUrl(c),
-          name:           c.name,
-          value:          c.value ?? '',
-          domain:         c.domain,
-          path:           c.path ?? '/',
-          secure:         c.secure ?? false,
-          httpOnly:       c.httpOnly ?? false,
-          sameSite:       c.sameSite ?? 'lax',
-          ...(c.expirationDate ? { expirationDate: c.expirationDate } : {}),
-        })));
-        allCookies = await chrome.cookies.getAll({});
-        closeAllPanels();
-        render();
-        showToast(`Created ${cookies.length} cookie${cookies.length > 1 ? 's' : ''}`);
-      } catch (err) {
-        showToast('Failed to create — check cookie format', 'error');
-      }
+      const result = await setCookies(cookies, { sameSiteFallback: 'lax' });
+      await refreshCookies();
+      if (result.ok > 0) closeAllPanels();
+      reportResult(result, n => `Created ${plural(n, 'cookie')}`, 'Create failed');
     }
 
     if (e.target.classList.contains('btn-cancel-create')) {
@@ -383,35 +542,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Rendering
+  //
+  // Rows never carry cookie data in attributes: each row/group holds an index into
+  // renderedCookies / renderedDomains, so names with quotes or markup can't break the HTML
+  // and two cookies that differ only by path can't be confused.
 
-  const cookieItemHTML = (cookie, duplicateNames) => {
+  const cookieItemHTML = (cookie, duplicateNames, i) => {
     const decoded = tryDecode(cookie.value);
-    const safeId  = `${cookie.name}-${cookie.domain}`.replace(/[^\w-]/g, '_');
+    const isOpen  = expandedKeys.has(cookieKey(cookie));
     const expires = cookie.expirationDate
       ? new Date(cookie.expirationDate * 1000).toLocaleString()
       : 'Session';
 
     return `
-      <div class="cookie-item ${!cookie.httpOnly ? 'warning-bg' : ''}">
+      <div class="cookie-item ${!cookie.httpOnly ? 'warning-bg' : ''}" data-i="${i}">
         <div class="cookie-main">
           <div class="cookie-info">
             <span class="cookie-name">${escHtml(cookie.name)}</span>
             <div class="security-labels">
               ${!cookie.httpOnly ? '<span class="label xss">No HttpOnly</span>' : ''}
               ${duplicateNames.has(cookie.name) ? '<span class="label duplicate">Duplicate</span>' : ''}
+              ${cookie.partitionKey ? '<span class="label expiry">Partitioned</span>' : ''}
               <span class="label expiry">${getRelativeTime(cookie.expirationDate)}</span>
             </div>
           </div>
           <div class="cookie-actions">
-            <button class="btn-expand" data-id="${safeId}">${chevronIcon}</button>
-            <button class="btn-delete"
-              data-name="${cookie.name}" data-domain="${cookie.domain}"
-              data-secure="${cookie.secure}" data-path="${cookie.path}">
-              Delete
-            </button>
+            <button class="btn-expand ${isOpen ? 'expanded' : ''}">${chevronIcon}</button>
+            <button class="btn-delete">Delete</button>
           </div>
         </div>
-        <div class="cookie-detail" id="detail-${safeId}" style="display:none">
+        <div class="cookie-detail" style="display:${isOpen ? 'block' : 'none'}">
           <div class="detail-field">
             <div class="detail-key">Value</div>
             <div class="detail-val">${escHtml(cookie.value) || '<em>(empty)</em>'}</div>
@@ -425,42 +585,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="meta-pair"><span>Path</span><span>${escHtml(cookie.path)}</span></div>
             <div class="meta-pair"><span>Secure</span><span>${cookie.secure ? 'Yes' : 'No'}</span></div>
             <div class="meta-pair"><span>HttpOnly</span><span>${cookie.httpOnly ? 'Yes' : 'No'}</span></div>
-            <div class="meta-pair"><span>SameSite</span><span>${cookie.sameSite || '—'}</span></div>
+            <div class="meta-pair"><span>SameSite</span><span>${escHtml(cookie.sameSite) || '—'}</span></div>
             <div class="meta-pair"><span>Expires</span><span>${expires}</span></div>
             <div class="meta-pair"><span>Host Only</span><span>${cookie.hostOnly ? 'Yes' : 'No'}</span></div>
+            ${cookie.partitionKey ? `<div class="meta-pair"><span>Partition</span><span>${escHtml(cookie.partitionKey.topLevelSite)}</span></div>` : ''}
           </div>
           <div class="detail-footer">
-            <button class="btn-edit-cookie"
-              data-name="${cookie.name}"
-              data-domain="${cookie.domain}"
-              data-path="${cookie.path}">
-              Edit Cookie
-            </button>
+            <button class="btn-edit-cookie">Edit Cookie</button>
           </div>
         </div>
       </div>`;
   };
 
-  const domainGroupHTML = (domain, cookies, duplicateNames, pinnedDomains) => {
+  const domainGroupHTML = (domain, g, cookies, duplicateNames) => {
     const isPinned = pinnedDomains.has(domain);
     return `
     <div class="domain-group">
       <div class="domain-header ${isPinned ? 'pinned' : ''}">
         <div class="domain-info">
-          <span>${domain}</span>
+          <span>${escHtml(domain)}</span>
           <span class="badge">${cookies.length}</span>
         </div>
         <div class="group-actions">
-          <button class="btn-pin-domain ${isPinned ? 'pinned' : ''}" data-domain="${domain}" title="${isPinned ? 'Unpin domain' : 'Pin to top'}">${pinIcon}</button>
-          <button class="btn-secondary btn-sessionize" data-domain="${domain}">Make Session-Only</button>
-          <button class="btn-bulk-delete" data-domain="${domain}">Clear Domain</button>
+          <button class="btn-pin-domain ${isPinned ? 'pinned' : ''}" data-g="${g}" title="${isPinned ? 'Unpin domain' : 'Pin to top'}">${pinIcon}</button>
+          <button class="btn-secondary btn-sessionize" data-g="${g}">Make Session-Only</button>
+          <button class="btn-bulk-delete" data-g="${g}">Clear Domain</button>
         </div>
       </div>
-      ${cookies.map(c => cookieItemHTML(c, duplicateNames)).join('')}
+      ${cookies.map(c => cookieItemHTML(c, duplicateNames, renderedCookies.push(c) - 1)).join('')}
     </div>`;
   };
 
-  const render = (filterText = '') => {
+  const render = (filterText = searchInput.value) => {
     const lowerFilter = filterText.toLowerCase();
 
     const domainsByName = {};
@@ -524,6 +680,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         break;
     }
 
+    renderedCookies = [];
+    renderedDomains = [];
+
     if (filtered.length === 0) {
       const isSearch = filterText.length > 0 || currentFilter !== 'all';
       statsDisplay.textContent = isSearch ? 'No matching cookies' : 'No cookies found';
@@ -544,8 +703,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     groupEntries = [...pinned, ...unpinned];
 
     statsDisplay.textContent = `${filtered.length} cookies across ${groupEntries.length} domains`;
-    cookieList.innerHTML = groupEntries.map(([d, c]) => domainGroupHTML(d, c, duplicateNames, pinnedDomains)).join('');
+    cookieList.innerHTML = groupEntries
+      .map(([d, c]) => domainGroupHTML(d, renderedDomains.push(d) - 1, c, duplicateNames))
+      .join('');
   };
+
+  // Cookie changes can arrive in bursts, and re-rendering would destroy an open edit form,
+  // so renders triggered by changes are coalesced and held back while a form is open.
+  const requestRender = () => {
+    if (cookieList.querySelector('.cookie-edit-form')) return;
+    render();
+  };
+  const scheduleRender = debounce(requestRender, 120);
 
 
   // Init
@@ -553,30 +722,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { pinned_domains: savedPins = [] } = await chrome.storage.local.get(['pinned_domains']);
   pinnedDomains = new Set(savedPins);
 
-  allCookies = await chrome.cookies.getAll({});
+  allCookies = await loadAllCookies();
   render();
 
 
   // Events
 
   chrome.cookies.onChanged.addListener(({ cookie, removed }) => {
-    const idx = allCookies.findIndex(c =>
-      c.name === cookie.name && c.domain === cookie.domain && c.path === cookie.path
-    );
+    const key = cookieKey(cookie);
+    const idx = allCookies.findIndex(c => cookieKey(c) === key);
     if (removed) {
       if (idx >= 0) allCookies.splice(idx, 1);
     } else {
       if (idx >= 0) allCookies[idx] = cookie;
       else allCookies.push(cookie);
     }
-    render(searchInput.value);
+    scheduleRender();
   });
 
   searchInput.addEventListener('input', debounce((e) => render(e.target.value), 250));
 
   document.getElementById('sortSelect').addEventListener('change', (e) => {
     currentSort = e.target.value;
-    render(searchInput.value);
+    render();
   });
 
   document.querySelectorAll('.chip').forEach(chip => {
@@ -584,7 +752,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       currentFilter = chip.dataset.filter;
-      render(searchInput.value);
+      render();
     });
   });
 
@@ -593,108 +761,117 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (snapshots.length >= 10) return showToast('Maximum of 10 snapshots reached', 'error');
     const labelInput = document.getElementById('snapshotLabel');
     const label      = labelInput?.value.trim() || '';
-    const updated    = [{ id: Date.now(), date: Date.now(), label, cookies: allCookies }, ...snapshots];
-    await chrome.storage.local.set({ cookie_snapshots: updated });
+    const updated    = [{ id: Date.now(), date: Date.now(), label, cookies: allCookies.map(slimCookie) }, ...snapshots];
+    try {
+      await chrome.storage.local.set({ cookie_snapshots: updated });
+    } catch (err) {
+      return showToast('Snapshot not saved — browser storage is full. Delete an older snapshot and try again.', 'error');
+    }
     if (labelInput) labelInput.value = '';
     renderSnapshots();
     showToast('Snapshot saved');
   });
 
   cookieList.addEventListener('click', async (e) => {
-    const target = e.target;
+    const target   = e.target;
+    const row      = target.closest('.cookie-item');
+    const cookie   = row ? renderedCookies[Number(row.dataset.i)] : null;
+    const groupBtn = target.closest('[data-g]');
+    const domain   = groupBtn ? renderedDomains[Number(groupBtn.dataset.g)] : null;
 
-    if (target.closest('.btn-expand')) {
+    if (target.closest('.btn-expand') && cookie) {
       const btn    = target.closest('.btn-expand');
-      const detail = document.getElementById(`detail-${btn.dataset.id}`);
+      const detail = row.querySelector('.cookie-detail');
       const isOpen = detail.style.display !== 'none';
       detail.style.display = isOpen ? 'none' : 'block';
       btn.classList.toggle('expanded', !isOpen);
+      if (isOpen) expandedKeys.delete(cookieKey(cookie));
+      else        expandedKeys.add(cookieKey(cookie));
       return;
     }
 
-    if (target.classList.contains('btn-edit-cookie')) {
-      const { name, domain, path } = target.dataset;
-      const cookie = allCookies.find(c => c.name === name && c.domain === domain && c.path === path);
-      if (!cookie) return;
-      const safeId = `${name}-${domain}`.replace(/[^\w-]/g, '_');
-      const detail = document.getElementById(`detail-${safeId}`);
+    if (target.classList.contains('btn-edit-cookie') && cookie) {
+      const detail = row.querySelector('.cookie-detail');
       detail.innerHTML = cookieFormHTML(cookie);
+      editOriginals.set(detail.querySelector('.cookie-edit-form'), cookie);
       return;
     }
 
     if (target.classList.contains('btn-save-edit')) {
-      const form = target.closest('.cookie-edit-form');
-      const { name, value, domain, path, expires, sameSite, secure, httpOnly } = readForm(form);
+      const formEl   = target.closest('.cookie-edit-form');
+      const original = editOriginals.get(formEl);
+      if (!original) return;
 
-      if (!name)   return showToast('Name is required', 'error');
-      if (!domain) return showToast('Domain is required', 'error');
+      const form    = readForm(formEl);
+      const problem = validateCookie(form);
+      if (problem) return showToast(problem, 'error');
 
-      const origName   = target.dataset.origName;
-      const origDomain = target.dataset.origDomain;
-      const origPath   = target.dataset.origPath;
-      const origSecure = target.dataset.origSecure === 'true';
+      const updated = formToCookie(form, { partitionKey: original.partitionKey });
 
-      await chrome.cookies.remove({
-        url: getCookieUrl({ domain: origDomain, secure: origSecure, path: origPath }),
-        name: origName,
-      });
-
-      const params = { url: getCookieUrl({ secure, domain, path }), name, value, domain, path, secure, httpOnly, sameSite };
-      if (expires) params.expirationDate = new Date(expires).getTime() / 1000;
-
+      // Write the new cookie first so a rejected edit can never lose the original.
       try {
-        await chrome.cookies.set(params);
-        allCookies = await chrome.cookies.getAll({});
-        render(searchInput.value);
-        showToast('Cookie updated');
+        await chrome.cookies.set(toSetDetails(updated));
       } catch (err) {
-        showToast('Failed to save — check domain format', 'error');
+        return showToast(`Failed to save — ${err.message} The original cookie was not changed.`, 'error');
       }
+
+      // If name, domain or path changed this is a different cookie, so remove the old one.
+      if (cookieKey(updated) !== cookieKey(original)) {
+        try {
+          await chrome.cookies.remove(toRemoveDetails(original));
+        } catch (err) {
+          showToast('Saved the new cookie, but could not remove the original', 'error');
+        }
+        if (expandedKeys.delete(cookieKey(original))) expandedKeys.add(cookieKey(updated));
+      }
+
+      await refreshCookies();
+      showToast('Cookie updated');
       return;
     }
 
     if (target.classList.contains('btn-cancel-edit')) {
-      render(searchInput.value);
+      render();
       return;
     }
 
-    if (target.closest('.btn-pin-domain')) {
-      const domain = target.closest('.btn-pin-domain').dataset.domain;
+    if (target.closest('.btn-pin-domain') && domain !== null) {
       if (pinnedDomains.has(domain)) pinnedDomains.delete(domain);
       else pinnedDomains.add(domain);
       await chrome.storage.local.set({ pinned_domains: [...pinnedDomains] });
-      render(searchInput.value);
+      render();
       return;
     }
 
-    if (target.classList.contains('btn-delete')) {
-      const { name, domain, secure, path } = target.dataset;
-      await chrome.cookies.remove({ url: getCookieUrl({ name, domain, secure: secure === 'true', path }), name });
-      allCookies = allCookies.filter(c => !(c.name === name && c.domain === domain));
-      render(searchInput.value);
+    if (target.classList.contains('btn-delete') && cookie) {
+      try {
+        await chrome.cookies.remove(toRemoveDetails(cookie));
+      } catch (err) {
+        return showToast(`Failed to delete — ${err.message}`, 'error');
+      }
+      const key = cookieKey(cookie);
+      allCookies = allCookies.filter(c => cookieKey(c) !== key);
+      expandedKeys.delete(key);
+      render();
+      return;
     }
 
-    if (target.classList.contains('btn-sessionize')) {
-      const domain = target.dataset.domain;
-      await Promise.all(
-        allCookies.filter(c => c.domain === domain).map(c => chrome.cookies.set({
-          url: getCookieUrl(c), name: c.name, value: c.value, domain: c.domain,
-          path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
-        }))
-      );
-      allCookies = await chrome.cookies.getAll({});
-      render(searchInput.value);
+    if (target.classList.contains('btn-sessionize') && domain !== null) {
+      const persistent = allCookies.filter(c => c.domain === domain && c.expirationDate);
+      if (persistent.length === 0) return showToast('Already session-only');
+      const result = await setCookies(persistent.map(c => ({ ...c, expirationDate: undefined })));
+      await refreshCookies();
+      reportResult(result, n => `Made ${plural(n, 'cookie')} session-only`, 'Could not change cookies');
+      return;
     }
 
-    if (target.classList.contains('btn-bulk-delete')) {
-      const domain = target.dataset.domain;
-      await Promise.all(
-        allCookies.filter(c => c.domain === domain).map(c =>
-          chrome.cookies.remove({ url: getCookieUrl(c), name: c.name })
-        )
+    if (target.classList.contains('btn-bulk-delete') && domain !== null) {
+      const results = await Promise.allSettled(
+        allCookies.filter(c => c.domain === domain).map(c => chrome.cookies.remove(toRemoveDetails(c)))
       );
-      allCookies = allCookies.filter(c => c.domain !== domain);
-      render(searchInput.value);
+      const failed = results.filter(r => r.status === 'rejected').length;
+      await refreshCookies();
+      if (failed) showToast(`${plural(failed, 'cookie')} could not be deleted`, 'error');
     }
   });
 
@@ -712,24 +889,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   importBtn.addEventListener('click', () => importFile.click());
 
   importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data)) throw new Error('Not a cookie array');
-        await Promise.all(data.map(c => chrome.cookies.set({
-          url: getCookieUrl(c), name: c.name, value: c.value, domain: c.domain,
-          path: c.path, secure: c.secure, httpOnly: c.httpOnly,
-          expirationDate: c.expirationDate, sameSite: c.sameSite,
-        })));
-        allCookies = await chrome.cookies.getAll({});
-        render();
-        showToast(`Imported ${data.length} cookies`);
-      } catch (err) {
-        showToast('Import failed — invalid file', 'error');
-      }
+    reader.onerror = () => {
+      importFile.value = '';
+      showToast('Import failed — could not read the file', 'error');
     };
-    reader.readAsText(e.target.files[0]);
+    reader.onload = async (ev) => {
+      importFile.value = ''; // lets the same file be imported again
+      let data;
+      try {
+        data = JSON.parse(ev.target.result);
+      } catch (err) {
+        return showToast('Import failed — not valid JSON', 'error');
+      }
+      if (!Array.isArray(data)) return showToast('Import failed — expected an array of cookies', 'error');
+      const result = await setCookies(data);
+      await refreshCookies();
+      reportResult(result, n => `Imported ${plural(n, 'cookie')}`, 'Import failed');
+    };
+    reader.readAsText(file);
   });
 
 });
