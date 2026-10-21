@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cookie Inspector — Chrome Extension</title>
-    <meta name="description" content="A clean, offline-first Chrome extension for inspecting, decoding, and managing browser cookies." />
+    <meta name="description" content="A clean, offline-first Chrome extension for inspecting, decoding, editing, and managing browser cookies. Opens on the site you are viewing." />
     <style>
       *, *::before, *::after {
         box-sizing: border-box;
@@ -102,6 +102,11 @@
         align-items: center;
         gap: 24px;
         list-style: none;
+      }
+
+      .nav-brand,
+      .nav-links a {
+        white-space: nowrap;
       }
 
       .nav-links a {
@@ -293,6 +298,136 @@
         color: var(--muted);
       }
 
+      /* ── Hero screenshot ── */
+
+      .hero-shot {
+        margin-top: 44px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .shot {
+        display: block;
+        width: 100%;
+        max-width: 360px;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
+      }
+
+      /* ── Get started ── */
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        list-style: none;
+        counter-reset: step;
+      }
+
+      .step {
+        counter-increment: step;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .step::before {
+        content: counter(step);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent-dim);
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 6px;
+      }
+
+      .step-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .step-desc {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      /* ── Screenshot gallery ── */
+
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 32px;
+        justify-items: center;
+      }
+
+      .gallery figure {
+        max-width: 360px;
+        width: 100%;
+      }
+
+      .gallery figcaption {
+        margin-top: 14px;
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .gallery figcaption strong {
+        display: block;
+        font-size: 15px;
+        color: var(--text);
+        margin-bottom: 2px;
+      }
+
+      /* ── Good to know ── */
+
+      .faq {
+        max-width: 720px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .faq details {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+      }
+
+      .faq summary {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .faq details p {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .more-link {
+        margin-top: 28px;
+        font-size: 15px;
+      }
+
       /* ── Privacy section ── */
 
       .privacy-card {
@@ -397,6 +532,7 @@
         section { padding: 48px 20px; }
         .privacy-card { padding: 24px 20px; }
         .nav-links { gap: 16px; }
+        .nav-start { display: none; }
       }
     </style>
   </head>
@@ -408,6 +544,7 @@
           🍪 Cookie Inspector
         </a>
         <ul class="nav-links">
+          <li class="nav-start"><a href="#start">Get started</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li><a href="https://github.com/JoshuaErney/cookie_inspector" target="_blank" rel="noopener">GitHub</a></li>
@@ -419,15 +556,44 @@
       <div class="hero-inner">
         <span class="hero-badge">🍪 Chrome Extension</span>
         <h1>Inspect, manage, and understand your browser cookies.</h1>
-        <p>A clean, offline-first Chrome extension with real-time updates, security indicators, and full cookie control — right inside your browser.</p>
+        <p>A clean, offline-first Chrome extension that opens on the site you are viewing, decodes JSON, JWT and Base64 values for you, and gives you full control of your cookies.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm" target="_blank" rel="noopener">
             View on Chrome Web Store
           </a>
-          <a class="btn btn-outline" href="https://github.com/joshuaerney/cookie_inspector" target="_blank" rel="noopener">
+          <a class="btn btn-outline" href="https://github.com/JoshuaErney/cookie_inspector" target="_blank" rel="noopener">
             View on GitHub
           </a>
         </div>
+        <div class="hero-shot">
+          <picture>
+            <source srcset="screenshots/main-dark.png" media="(prefers-color-scheme: dark)" />
+            <img class="shot" src="screenshots/main-light.png" width="400" height="560" alt="Cookie Inspector showing the cookies for www.example.com, with This site and All sites buttons, search, filters and a list of cookies" />
+          </picture>
+        </div>
+      </div>
+    </section>
+
+    <section id="start">
+      <div class="section-inner">
+        <div class="section-label">Get started</div>
+        <h2 class="section-title">Up and running in three steps.</h2>
+        <p class="section-sub">No account, no setup, no configuration.</p>
+
+        <ol class="steps">
+          <li class="step">
+            <div class="step-title">Install</div>
+            <div class="step-desc">Add Cookie Inspector from the <a href="https://chromewebstore.google.com/detail/cookie-inspector/hlkphfjopipfemagmodglbccjgbmhjkm" target="_blank" rel="noopener">Chrome Web Store</a>.</div>
+          </li>
+          <li class="step">
+            <div class="step-title">Pin it</div>
+            <div class="step-desc">Click the puzzle-piece icon in Chrome's toolbar, then the pin next to Cookie Inspector.</div>
+          </li>
+          <li class="step">
+            <div class="step-title">Open a site, click the icon</div>
+            <div class="step-desc">It opens on that site's cookies. Click <strong>All sites</strong> to see every cookie in the browser.</div>
+          </li>
+        </ol>
       </div>
     </section>
 
@@ -435,26 +601,43 @@
       <div class="section-inner">
         <div class="section-label">Features</div>
         <h2 class="section-title">Everything you need to manage cookies.</h2>
-        <p class="section-sub">Cookie Inspector gives you a clear, real-time view of every cookie in your browser with the tools to inspect, edit, and control them.</p>
+        <p class="section-sub">A clear, live view of your cookies, with the tools to inspect, edit and control them.</p>
 
         <div class="features-grid">
 
           <div class="feature-card">
+            <div class="feature-icon">🌐</div>
+            <div class="feature-title">This site / All sites</div>
+            <div class="feature-desc">Opens on the cookies the site in your active tab can use: domain cookies for it and its parent domains, plus host-only cookies for that exact host. One click shows every cookie in the browser. The list updates live as sites set or remove cookies.</div>
+            <div class="feature-tags">
+              <span class="tag">This site</span>
+              <span class="tag">All sites</span>
+              <span class="tag">Live updates</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
             <div class="feature-icon">🔍</div>
-            <div class="feature-title">Cookie Inspection</div>
-            <div class="feature-desc">View every cookie grouped by domain. A live stats bar shows total count and domains at a glance. The list updates in real time as websites set or remove cookies while the popup is open.</div>
+            <div class="feature-title">Search, filter &amp; sort</div>
+            <div class="feature-desc">Search by name, domain or value. Filter to Session, No HttpOnly, Insecure or Duplicate cookies. Sort domain groups by name, expiry or cookie count.</div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">📋</div>
-            <div class="feature-title">Detail Panel & Auto-Decode</div>
-            <div class="feature-desc">Expand any cookie to see its full metadata — value, path, secure flag, HttpOnly, SameSite, expiration, and host-only status. JSON and Base64 values are decoded automatically.</div>
+            <div class="feature-title">Detail panel &amp; auto-decode</div>
+            <div class="feature-desc">Expand any cookie for its value, path, Secure, HttpOnly, SameSite, expiry, host-only status and partition. Values that can be decoded are decoded for you. JWT signatures are not verified.</div>
+            <div class="feature-tags">
+              <span class="tag">JSON</span>
+              <span class="tag">JWT</span>
+              <span class="tag">URL-encoded</span>
+              <span class="tag">Base64</span>
+            </div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">✏️</div>
-            <div class="feature-title">Create & Edit Cookies</div>
-            <div class="feature-desc">Create cookies manually with a full form, or paste raw JSON or Base64 to create one or many at once. Edit any existing cookie directly in the detail panel.</div>
+            <div class="feature-title">Create cookies</div>
+            <div class="feature-desc">Fill in a form with every attribute, or paste a cookie object, an array, or Base64-encoded JSON to create many at once. Chrome's rules are checked first, with a clear message when something is wrong.</div>
             <div class="feature-tags">
               <span class="tag">Manual form</span>
               <span class="tag">JSON paste</span>
@@ -463,46 +646,123 @@
           </div>
 
           <div class="feature-card">
+            <div class="feature-icon">🛡️</div>
+            <div class="feature-title">Safe editing</div>
+            <div class="feature-desc">Edit any cookie in place. The new cookie is written before the old one is removed, so a change Chrome rejects never loses the original.</div>
+          </div>
+
+          <div class="feature-card">
             <div class="feature-icon">🔒</div>
-            <div class="feature-title">Security Indicators</div>
-            <div class="feature-desc">Cookies missing <code>HttpOnly</code> are flagged with an amber border — they're accessible to JavaScript and a potential XSS risk. Cookies with the same name on multiple domains are flagged as duplicates.</div>
+            <div class="feature-title">Security indicators</div>
+            <div class="feature-desc">Cookies that page JavaScript can read (no <code>HttpOnly</code>) get an amber bar, which is worth a look on session and login cookies. Cookies without <code>Secure</code> have their own filter, and names repeated across domains are flagged as duplicates.</div>
             <div class="feature-tags">
               <span class="tag">No HttpOnly</span>
-              <span class="tag">Duplicate</span>
               <span class="tag">Insecure</span>
+              <span class="tag">Duplicate</span>
             </div>
           </div>
 
           <div class="feature-card">
-            <div class="feature-icon">🗂️</div>
-            <div class="feature-title">Filtering & Sorting</div>
-            <div class="feature-desc">Filter cookies by type using quick-select chips: All, Session, No HttpOnly, Insecure, or Duplicate. Sort domain groups by name, expiry, or cookie count.</div>
+            <div class="feature-icon">🧹</div>
+            <div class="feature-title">Bulk actions</div>
+            <div class="feature-desc">Clear every cookie for a domain, or make all of a domain's cookies session-only, in one click. There is no undo, so take a snapshot or export first.</div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">📌</div>
-            <div class="feature-title">Domain Pinning</div>
-            <div class="feature-desc">Pin any domain to keep it anchored at the top of the list, regardless of the active sort. Pins are saved across sessions so your most important domains are always front and center.</div>
+            <div class="feature-title">Domain pinning</div>
+            <div class="feature-desc">Pin any domain to keep it at the top of the list, whatever the sort. Pins are saved across sessions.</div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">🗄️</div>
             <div class="feature-title">Snapshots</div>
-            <div class="feature-desc">Save up to 10 named, point-in-time copies of all your cookies. Restore any snapshot to bring your cookies back to that exact state, or delete ones you no longer need.</div>
+            <div class="feature-desc">Save up to 10 named copies of your cookies. Restore sets them all again, overwriting matching cookies. It does not delete cookies created since, so it is not a full rollback.</div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">📤</div>
-            <div class="feature-title">Export & Import</div>
-            <div class="feature-desc">Export all current cookies to a timestamped JSON file. Import a previously exported file to restore cookies across sessions or transfer them between environments.</div>
+            <div class="feature-title">Export &amp; import</div>
+            <div class="feature-desc">Export the cookies in the current scope, one site or all, to a timestamped JSON file, and import a file back. If Chrome rejects some cookies, you are told how many.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🧩</div>
+            <div class="feature-title">Partitioned cookies</div>
+            <div class="feature-desc">Partitioned (CHIPS) cookies are listed with a label and keep their partition when you edit them.</div>
           </div>
 
           <div class="feature-card">
             <div class="feature-icon">🌙</div>
-            <div class="feature-title">Dark Mode</div>
-            <div class="feature-desc">Automatically respects your system's dark or light preference. Toggle manually at any time — your choice is saved across sessions.</div>
+            <div class="feature-title">Dark mode</div>
+            <div class="feature-desc">Follows your system's light or dark setting. Switch manually at any time; your choice is remembered.</div>
           </div>
 
+        </div>
+
+        <p class="more-link">Step-by-step instructions for every feature are in the <a href="https://github.com/JoshuaErney/cookie_inspector#using-cookie-inspector" target="_blank" rel="noopener">full guide on GitHub</a>.</p>
+      </div>
+    </section>
+
+    <section id="screenshots">
+      <div class="section-inner">
+        <div class="section-label">See it in action</div>
+        <h2 class="section-title">Decode it, build it, save it.</h2>
+        <p class="section-sub">The screenshots use demo data.</p>
+
+        <div class="gallery">
+          <figure>
+            <picture>
+              <source srcset="screenshots/detail-dark.png" media="(prefers-color-scheme: dark)" />
+              <img class="shot" src="screenshots/detail-light.png" width="400" height="560" loading="lazy" alt="A cookie's detail panel showing its raw value and the decoded JWT header and payload" />
+            </picture>
+            <figcaption><strong>Detail panel</strong>The raw value and the decoded JWT, with no copy-pasting into another tool.</figcaption>
+          </figure>
+          <figure>
+            <picture>
+              <source srcset="screenshots/create-dark.png" media="(prefers-color-scheme: dark)" />
+              <img class="shot" src="screenshots/create-light.png" width="400" height="560" loading="lazy" alt="The New Cookie panel with fields for name, value, domain, path, expiry, SameSite and flags" />
+            </picture>
+            <figcaption><strong>New cookie</strong>Every attribute in one form, or paste JSON or Base64 on the other tab.</figcaption>
+          </figure>
+          <figure>
+            <picture>
+              <source srcset="screenshots/snapshots-dark.png" media="(prefers-color-scheme: dark)" />
+              <img class="shot" src="screenshots/snapshots-light.png" width="400" height="560" loading="lazy" alt="The Snapshots panel listing two saved snapshots with Restore and Delete buttons" />
+            </picture>
+            <figcaption><strong>Snapshots</strong>Save named copies of your cookies and restore them with one click.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="good-to-know">
+      <div class="section-inner">
+        <div class="section-label">Good to know</div>
+        <h2 class="section-title">Straight answers.</h2>
+        <p class="section-sub">What it does, and what it does not.</p>
+
+        <div class="faq">
+          <details>
+            <summary>Does it send my cookies anywhere?</summary>
+            <p>No. Cookie Inspector makes no network requests, has no analytics, and keeps its data in your browser. The font is bundled in the extension.</p>
+          </details>
+          <details>
+            <summary>Why am I only seeing one site's cookies?</summary>
+            <p>When the active tab is a website, Cookie Inspector opens on <strong>This site</strong>. Click <strong>All sites</strong> at the top to see every cookie. A host-only cookie on a parent or sibling host, such as <code>example.com</code> when you are on <code>www.example.com</code>, only appears under All sites.</p>
+          </details>
+          <details>
+            <summary>Can I undo a delete?</summary>
+            <p>No. Delete, Clear Domain and Make Session-Only act immediately. Take a snapshot or export the cookies first if you might want them back. Clear Domain removes every cookie stored for that domain, including ones hidden by a search or filter.</p>
+          </details>
+          <details>
+            <summary>Does Restore roll everything back?</summary>
+            <p>No. Restore sets every cookie from the snapshot again and overwrites matching ones, but it does not delete cookies that were created after the snapshot. A snapshot always contains every cookie in the browser, not just the current site.</p>
+          </details>
+          <details>
+            <summary>Which browsers does it work in?</summary>
+            <p>Cookie Inspector is built for Google Chrome (Manifest V3). It works on your normal browsing profile; incognito windows are not specifically supported.</p>
+          </details>
         </div>
       </div>
     </section>
@@ -519,7 +779,7 @@
           </div>
 
           <h3>What Cookie Inspector does</h3>
-          <p>Cookie Inspector is a Chrome browser extension that lets you view, inspect, and manage the cookies stored in your browser. It reads cookie data already present on your device and displays it within the extension popup.</p>
+          <p>Cookie Inspector is a Chrome browser extension that lets you view, inspect, and manage the cookies stored in your browser. It reads cookie data already present on your device and displays it within the extension popup. When you open the popup it also reads the address of your active tab, so it can show that site's cookies first. The address is used only inside the popup while it is open and is never saved or sent anywhere.</p>
 
           <h3>Data collection</h3>
           <p>We do not collect any data. Specifically:</p>
@@ -538,7 +798,7 @@
           <ul>
             <li><strong>cookies</strong> — required to read, modify, and delete cookies on your behalf</li>
             <li><strong>storage</strong> — required to save your theme preference, snapshots, and pinned domains locally</li>
-            <li><strong>host permissions (&lt;all_urls&gt;)</strong> — required so the cookies API can operate across all domains</li>
+            <li><strong>host permissions (&lt;all_urls&gt;)</strong> — required so the cookies API can operate across all domains, and so the popup can read the active tab's address to choose which site's cookies to show first</li>
           </ul>
           <p>These permissions are used exclusively to provide the features of the extension and for no other purpose.</p>
 
